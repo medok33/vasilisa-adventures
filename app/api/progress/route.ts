@@ -15,7 +15,7 @@ function cleanPayload(input: ProgressPayload) {
     mathAnswers: strings(input.mathAnswers, 5), englishAnswers: strings(input.englishAnswers, 6),
     kindnessChoice: textValue(input.kindnessChoice, 200), kindnessNote: textValue(input.kindnessNote, 400), independenceChoice: textValue(input.independenceChoice, 200),
     mood: textValue(input.mood, 8), goodThing: textValue(input.goodThing, 500), hardThing: textValue(input.hardThing, 500), dadNote: textValue(input.dadNote, 600),
-    balance: money(input.balance), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), phone: textValue(input.phone, 16), reserveStar: Boolean(input.reserveStar),
+    balance: money(input.balance), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), phone: textValue(input.phone, 16), reserveStar: Boolean(input.reserveStar), decision: textValue(input.decision, 12),
   };
 }
 
