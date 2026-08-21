@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 type MissionId = "morning" | "reading" | "math" | "english" | "order" | "kindness" | "independence";
 type View = "home" | "wallet" | "journal" | "parent" | MissionId;
+type NavSection = "today" | "wallet" | "journal" | "parent";
 type Progress = {
   done: MissionId[];
   morningChecks: string[];
@@ -37,17 +38,16 @@ type Mission = {
   note: string;
   reward: string;
   accent: string;
-  symbol: string;
 };
 
 const missions: Mission[] = [
-  { id: "morning", index: "01", kicker: "Начало дня", title: "Утренний запуск", note: "4 простых шага для бодрого старта", reward: "1 ⭐", accent: "sun", symbol: "☀" },
-  { id: "reading", index: "02", kicker: "Главный квест", title: "Изумрудная книга", note: "Чтение, страницы и вопрос по сюжету", reward: "до 3 ⭐", accent: "mint", symbol: "▤" },
-  { id: "math", index: "03", kicker: "Тренировка", title: "Шифр экспедиции", note: "5 задач уровня 3-го класса", reward: "2 ⭐", accent: "blue", symbol: "×" },
-  { id: "english", index: "04", kicker: "Разведка", title: "Слова вокруг нас", note: "5 слов и одна короткая фраза", reward: "1 ⭐", accent: "coral", symbol: "Aa" },
-  { id: "order", index: "05", kicker: "Домашняя миссия", title: "Пять минут порядка", note: "Комната, стол, одежда и обувь", reward: "1 ⭐", accent: "amber", symbol: "✓" },
-  { id: "kindness", index: "06", kicker: "Секретная миссия", title: "Заметить другого", note: "Выбери одно настоящее доброе дело", reward: "1 ⭐", accent: "rose", symbol: "♥" },
-  { id: "independence", index: "07", kicker: "Суперспособность", title: "Без напоминания", note: "Что сегодня получилось сделать самой?", reward: "1 ⭐", accent: "violet", symbol: "↗" },
+  { id: "morning", index: "01", kicker: "Начало дня", title: "Утренний запуск", note: "4 простых шага для бодрого старта", reward: "1 ⭐", accent: "sun" },
+  { id: "reading", index: "02", kicker: "Главный квест", title: "Изумрудная книга", note: "Чтение, страницы и вопрос по сюжету", reward: "до 3 ⭐", accent: "mint" },
+  { id: "math", index: "03", kicker: "Тренировка", title: "Шифр экспедиции", note: "5 задач уровня 3-го класса", reward: "2 ⭐", accent: "blue" },
+  { id: "english", index: "04", kicker: "Разведка", title: "Слова вокруг нас", note: "5 слов и одна короткая фраза", reward: "1 ⭐", accent: "coral" },
+  { id: "order", index: "05", kicker: "Домашняя миссия", title: "Пять минут порядка", note: "Комната, стол, одежда и обувь", reward: "1 ⭐", accent: "amber" },
+  { id: "kindness", index: "06", kicker: "Секретная миссия", title: "Заметить другого", note: "Выбери одно настоящее доброе дело", reward: "1 ⭐", accent: "rose" },
+  { id: "independence", index: "07", kicker: "Суперспособность", title: "Без напоминания", note: "Что сегодня получилось сделать самой?", reward: "1 ⭐", accent: "violet" },
 ];
 
 const emptyProgress: Progress = {
@@ -91,6 +91,7 @@ function clampMoney(value: number) { return Math.max(0, Math.min(1_000_000, Math
 export default function Adventure() {
   const [day] = useState(berlinDay);
   const [view, setView] = useState<View>("home");
+  const [navSection, setNavSection] = useState<NavSection>("today");
   const [progress, setProgress] = useState<Progress>(emptyProgress);
   const [todayLimit, setTodayLimit] = useState(100);
   const [closed, setClosed] = useState(false);
@@ -145,6 +146,10 @@ export default function Adventure() {
     setCelebration(message); window.setTimeout(() => { setCelebration(null); setView("home"); }, 1200);
   }
   function reopenMission(id: MissionId) { if (!closed) setProgress((current) => ({ ...current, done: current.done.filter((item) => item !== id) })); }
+  function jumpTo(section: NavSection) {
+    setNavSection(section);
+    document.getElementById(`${section}-anchor`)?.scrollIntoView({ behavior: "smooth", block: section === "today" ? "start" : "center" });
+  }
 
   const mathAllCorrect = mathQuestions.every((question, index) => progress.mathAnswers[index]?.trim() === question.answer);
   const englishAllCorrect = englishQuestions.every((question, index) => progress.englishAnswers[index] === question.answer);
@@ -214,16 +219,16 @@ export default function Adventure() {
       <header className="app-header">
         <button className="profile-dot" type="button" aria-label="Профиль Василисы">В</button>
         <div><strong>Приключения Василисы</strong><span>{dayLabel(day)}</span></div>
-        <nav className="desktop-nav" aria-label="Разделы приложения"><button className="active" onClick={() => setView("home")}>Сегодня</button><button onClick={() => setView("wallet")}>Копилка</button><button onClick={() => setView("journal")}>Мой день</button></nav>
+        <nav className="desktop-nav" aria-label="Разделы приложения"><button className={navSection==="today"?"active":""} onClick={() => jumpTo("today")}>Сегодня</button><button className={navSection==="wallet"?"active":""} onClick={() => jumpTo("wallet")}>Копилка</button><button className={navSection==="journal"?"active":""} onClick={() => jumpTo("journal")}>Мой день</button></nav>
         <div className={`sync-state ${saveState}`}>{saveState === "saved" ? "Сохранено" : saveState === "saving" ? "Сохраняю" : "Без связи"}</div>
       </header>
 
-      <section className="game-hero">
+      <section className="game-hero" id="today-anchor">
         <div className="hero-content"><p className="hero-label">День 1 · Солнечная экспедиция</p><h1>Твой день.<br/>Твой маршрут.</h1><p>Семь коротких миссий для ума, характера и хорошего настроения. Начинай с любой.</p><div className="hero-actions"><button onClick={() => setView(missions.find((m) => !progress.done.includes(m.id))?.id ?? "journal")}>{earnedStars === 10 ? "Записать итог дня" : "Следующая миссия"}<span aria-hidden="true">→</span></button><div className="hero-progress"><b>{progress.done.length}/7</b><span>миссий готово</span></div></div></div>
         <img src="/hero-v2.png" alt="Девочка-исследовательница с книгой и маленьким роботом-помощником" />
       </section>
 
-      <section className="dashboard-strip">
+      <section className="dashboard-strip" id="wallet-anchor">
         <button className="money-stat" onClick={() => setView("wallet")}><span>Можно сегодня</span><strong>{todayLimit} ₽</strong><small>В копилке {progress.balance.toLocaleString("ru-RU")} ₽ <b>→</b></small></button>
         <div className="star-summary"><span>Звёзды сегодня</span><strong>{earnedStars}<small> из 10</small></strong><div className="mini-stars">{Array.from({length:10},(_,i)=><i className={i<earnedStars?"filled":""} key={i} />)}</div></div>
         <div className="tomorrow-stat"><span>Откроется завтра</span><strong>{tomorrowLimit} ₽</strong><small>После проверки мамой</small></div>
@@ -231,17 +236,35 @@ export default function Adventure() {
 
       <section className="route-section">
         <div className="route-heading"><div><p>Маршрут на сегодня</p><h2>Миссии дня</h2></div><span>Можно идти в любом порядке · ошибки не отнимают звёзды</span></div>
-        <div className="route-grid">{missions.map((mission) => { const done = progress.done.includes(mission.id); return <article className={`route-card ${mission.accent} ${done ? "done" : ""}`} key={mission.id}><button className="route-main" onClick={() => setView(mission.id)}><span className="mission-number">{mission.index}</span><span className="mission-symbol">{mission.symbol}</span><span className="route-copy"><small>{mission.kicker}</small><strong>{mission.title}</strong><p>{mission.note}</p></span><span className="reward-pill">{done ? "Готово" : mission.reward}</span></button>{done && !closed && <button className="redo" onClick={() => reopenMission(mission.id)}>пройти заново</button>}</article>; })}</div>
+        <div className="route-grid">{missions.map((mission) => { const done = progress.done.includes(mission.id); return <article className={`route-card ${mission.accent} ${done ? "done" : ""}`} key={mission.id}><button className="route-main" onClick={() => setView(mission.id)}><span className="mission-number">{mission.index}</span><span className="mission-symbol"><MissionIcon id={mission.id}/></span><span className="route-copy"><small>{mission.kicker}</small><strong>{mission.title}</strong><p>{mission.note}</p></span><span className="reward-pill">{done ? "Готово" : mission.reward}</span></button>{done && !closed && <button className="redo" onClick={() => reopenMission(mission.id)}>пройти заново</button>}</article>; })}</div>
       </section>
 
       <section className="bottom-cards">
-        <button className="journal-card" onClick={() => setView("journal")}><span>Личное пространство</span><strong>Мой день</strong><p>Что получилось, что было сложно и что рассказать папе.</p><i>Открыть дневник <b>→</b></i></button>
-        <button className={`parent-card ${closed ? "closed" : ""}`} onClick={() => setView("parent")}><span>Для взрослых</span><strong>{closed ? "День подтверждён" : "Проверка дня"}</strong><p>{closed ? "Все результаты сохранены. День можно открыть для исправления." : "Мама подтверждает бытовые миссии и закрывает день вечером."}</p><i>{closed ? `${earnedStars}/10 ⭐ · ${tomorrowLimit} ₽ завтра` : "Перейти к проверке →"}</i></button>
+        <button id="journal-anchor" className="journal-card" onClick={() => setView("journal")}><span>Личное пространство</span><strong>Мой день</strong><p>Что получилось, что было сложно и что рассказать папе.</p><i>Открыть дневник <b>→</b></i></button>
+        <button id="parent-anchor" className={`parent-card ${closed ? "closed" : ""}`} onClick={() => setView("parent")}><span>Для взрослых</span><strong>{closed ? "День подтверждён" : "Проверка дня"}</strong><p>{closed ? "Все результаты сохранены. День можно открыть для исправления." : "Мама подтверждает бытовые миссии и закрывает день вечером."}</p><i>{closed ? `${earnedStars}/10 ⭐ · ${tomorrowLimit} ₽ завтра` : "Перейти к проверке →"}</i></button>
       </section>
 
-      <nav className="mobile-nav"><button className="active" onClick={() => setView("home")}><b>⌂</b>Сегодня</button><button onClick={() => setView("wallet")}><b>₽</b>Копилка</button><button onClick={() => setView("journal")}><b>◯</b>Мой день</button><button onClick={() => setView("parent")}><b>✓</b>Маме</button></nav>
+      <nav className="mobile-nav" aria-label="Быстрая навигация"><button className={navSection==="today"?"active":""} onClick={() => jumpTo("today")}><NavIcon name="home"/><span>Сегодня</span></button><button className={navSection==="wallet"?"active":""} onClick={() => jumpTo("wallet")}><NavIcon name="wallet"/><span>Копилка</span></button><button className={navSection==="journal"?"active":""} onClick={() => jumpTo("journal")}><NavIcon name="journal"/><span>Мой день</span></button><button className={navSection==="parent"?"active":""} onClick={() => jumpTo("parent")}><NavIcon name="parent"/><span>Маме</span></button></nav>
     </main>
   );
+}
+
+function MissionIcon({ id }: { id: MissionId }) {
+  const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 2.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  if (id === "morning") return <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="31" r="12" fill="currentColor" opacity=".14"/><path {...stroke} d="M20 38a12 12 0 0 1 24 0M14 44h36M32 10v7M16.5 17.5l5 5M47.5 17.5l-5 5"/><path d="M48 10l1.4 3.2 3.1 1.4-3.1 1.4-1.4 3.2-1.4-3.2-3.1-1.4 3.1-1.4Z" fill="currentColor"/></svg>;
+  if (id === "reading") return <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M10 17.5c8.8-2.5 16.1-.5 22 5.8 5.9-6.3 13.2-8.3 22-5.8v31c-8.7-2.6-16-.6-22 5.8-6-6.4-13.3-8.4-22-5.8Z" fill="currentColor" opacity=".13"/><path {...stroke} d="M10 17.5c8.8-2.5 16.1-.5 22 5.8v31c-6-6.4-13.3-8.4-22-5.8Zm44 0c-8.8-2.5-16.1-.5-22 5.8v31c6-6.4 13.3-8.4 22-5.8Z"/><path d="m32 27 5.2 6-5.2 6-5.2-6Z" fill="currentColor"/><circle cx="47" cy="11" r="3" fill="currentColor" opacity=".65"/></svg>;
+  if (id === "math") return <svg viewBox="0 0 64 64" aria-hidden="true"><path d="m32 7 22 12.5v25L32 57 10 44.5v-25Z" fill="currentColor" opacity=".11"/><path {...stroke} d="m32 7 22 12.5v25L32 57 10 44.5v-25Zm-9 17h9m-4.5-4.5v9M39 21l8 8m0-8-8 8M20 41h11m8-4h9m-9 8h9"/><circle cx="53" cy="12" r="3" fill="currentColor"/></svg>;
+  if (id === "english") return <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M8 13h38v29H24L13 51v-9H8Z" fill="currentColor" opacity=".12"/><path {...stroke} d="M8 13h38v29H24L13 51v-9H8Zm29 35h9l8 7v-7h3V29h-7"/><path {...stroke} d="m18 34 7-15 7 15m-11.5-6h9"/><path d="M51 15l1.4 3.1 3.1 1.4-3.1 1.4-1.4 3.1-1.4-3.1-3.1-1.4 3.1-1.4Z" fill="currentColor"/></svg>;
+  if (id === "order") return <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="15" width="48" height="38" rx="8" fill="currentColor" opacity=".11"/><path {...stroke} d="M8 31h48M22 15v16m19-16v16M17 41h10m8 0h12M17 47h20"/><path d="M49 7l1.5 3.5L54 12l-3.5 1.5L49 17l-1.5-3.5L44 12l3.5-1.5Z" fill="currentColor"/></svg>;
+  if (id === "kindness") return <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 45S14 35.6 14 23.5C14 15.7 24.1 12 32 21c7.9-9 18-5.3 18 2.5C50 35.6 32 45 32 45Z" fill="currentColor" opacity=".18"/><path {...stroke} d="M32 45S14 35.6 14 23.5C14 15.7 24.1 12 32 21c7.9-9 18-5.3 18 2.5C50 35.6 32 45 32 45ZM7 40l10 12h11l4-7m25-5L47 52H36l-4-7"/><circle cx="51" cy="12" r="3" fill="currentColor"/></svg>;
+  return <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="31" cy="33" r="22" fill="currentColor" opacity=".11"/><path {...stroke} d="M31 11a22 22 0 1 0 22 22M31 20v26m-9-9 9 9 9-9M44 12h10v10m0-10L39 27"/><path d="M13 14l1.4 3.2 3.1 1.4-3.1 1.4-1.4 3.2-1.4-3.2-3.1-1.4 3.1-1.4Z" fill="currentColor"/></svg>;
+}
+
+function NavIcon({ name }: { name: "home" | "wallet" | "journal" | "parent" }) {
+  if (name === "home") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 10 8-6 8 6v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1Z"/></svg>;
+  if (name === "wallet") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H18v4H6.5a2.5 2.5 0 0 1 0-5M4 6.5V18a2 2 0 0 0 2 2h14V8H6.5M16 13h4v4h-4a2 2 0 0 1 0-4Z"/></svg>;
+  if (name === "journal") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5A2.5 2.5 0 0 1 7.5 2H19v17H7.5A2.5 2.5 0 0 0 5 21.5Zm0 0v17M9 7h6m-6 4h7"/></svg>;
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.5-1a3 3 0 1 0 0-6m-7.5 9C5 12 3 14.2 3 18v2h11v-2c0-3.8-2-6-5.5-6Zm7 0c3.5 0 5.5 2.2 5.5 6v2h-5"/></svg>;
 }
 
 function ActivityHeader({ mission, onBack, done }: { mission: Mission; onBack: () => void; done: boolean }) {

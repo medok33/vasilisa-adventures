@@ -33,6 +33,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .sync-state.offline::before { background: #ff3b30; }
 
 .game-hero { position: relative; min-height: 500px; overflow: hidden; border-radius: 34px; background: #dcecf4; box-shadow: 0 28px 80px rgba(34,63,81,.13); isolation: isolate; }
+.game-hero,.dashboard-strip,.bottom-cards>button { scroll-margin-top: 92px; }
 .game-hero::before { content: ""; position: absolute; z-index: 1; inset: 0; background: linear-gradient(90deg,rgba(236,246,250,.99) 0%,rgba(236,246,250,.91) 36%,rgba(236,246,250,.22) 63%,rgba(236,246,250,0) 78%); }
 .game-hero::after { content: ""; position: absolute; z-index: 1; left: 5%; bottom: -100px; width: 390px; height: 260px; border-radius: 50%; background: rgba(255,255,255,.55); filter: blur(65px); }
 .game-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 53% center; transform: scale(1.015); }
@@ -78,15 +79,19 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .route-card:nth-child(2) { grid-column: span 7; background: linear-gradient(135deg,#163448 0%,#286179 100%); }
 .route-card:nth-child(5),.route-card:nth-child(6),.route-card:nth-child(7) { grid-column: span 4; }
 .route-card.sun { --accent:#c47b08;--soft:#fff4d9 }.route-card.mint { --accent:#50d5aa;--soft:rgba(255,255,255,.12) }.route-card.blue { --accent:#2475d9;--soft:#edf4ff }.route-card.coral { --accent:#d75e4a;--soft:#fff0ed }.route-card.amber { --accent:#a76e08;--soft:#fff4db }.route-card.rose { --accent:#c14d71;--soft:#fff0f5 }.route-card.violet { --accent:#6d55c7;--soft:#f3f0ff }
-.route-main { display: grid; grid-template-columns: 48px 1fr auto; align-items: center; gap: 16px; width: 100%; min-height: 154px; padding: 23px; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.route-main { display: grid; grid-template-columns: 66px 1fr auto; align-items: center; gap: 18px; width: 100%; min-height: 164px; padding: 23px; border: 0; background: transparent; text-align: left; cursor: pointer; }
 .mission-number { position: absolute; top: 18px; right: 20px; color: rgba(29,29,31,.25); font-size: 11px; font-weight: 700; }
-.mission-symbol { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 15px; color: var(--accent); background: var(--soft); font-size: 18px; font-weight: 750; }
+.mission-symbol { position: relative; display: grid; place-items: center; width: 66px; height: 66px; overflow: hidden; border: 1px solid rgba(255,255,255,.72); border-radius: 21px; color: var(--accent); background: radial-gradient(circle at 24% 15%,rgba(255,255,255,.95),rgba(255,255,255,0) 46%),var(--soft); box-shadow: inset 0 1px 0 rgba(255,255,255,.8),inset 0 -12px 22px rgba(255,255,255,.09),0 12px 28px color-mix(in srgb,var(--accent) 14%,transparent); transform: rotate(-2deg); transition: transform .24s cubic-bezier(.2,.8,.2,1),box-shadow .24s ease; }
+.mission-symbol::after { content: ""; position: absolute; right: -7px; bottom: -8px; width: 27px; height: 27px; border: 6px solid currentColor; border-radius: 50%; opacity: .07; }
+.mission-symbol svg { position: relative; z-index: 1; width: 45px; height: 45px; filter: drop-shadow(0 4px 7px color-mix(in srgb,var(--accent) 18%,transparent)); }
+.route-card:hover .mission-symbol { transform: translateY(-2px) rotate(1deg) scale(1.04); box-shadow: inset 0 1px 0 rgba(255,255,255,.9),0 16px 32px color-mix(in srgb,var(--accent) 22%,transparent); }
 .route-copy { min-width: 0; }
 .route-copy small { display: block; margin-bottom: 5px; color: var(--accent); font-size: 9px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
 .route-copy strong { display: block; font-size: 18px; letter-spacing: -.025em; }
 .route-copy p { margin: 5px 0 0; color: #77777d; font-size: 11px; line-height: 1.45; }
 .reward-pill { align-self: end; min-width: 57px; padding: 7px 9px; border-radius: 99px; color: var(--accent); background: var(--soft); font-size: 9px; font-weight: 750; text-align: center; }
 .route-card:nth-child(2) .mission-number { color: rgba(255,255,255,.26); }
+.route-card:nth-child(2) .mission-symbol { border-color: rgba(255,255,255,.16); background: radial-gradient(circle at 24% 15%,rgba(255,255,255,.2),rgba(255,255,255,0) 47%),rgba(255,255,255,.1); box-shadow: inset 0 1px rgba(255,255,255,.24),0 15px 35px rgba(0,0,0,.14); }
 .route-card:nth-child(2) .route-copy strong { color: #fff; }
 .route-card:nth-child(2) .route-copy p { color: rgba(255,255,255,.65); }
 .route-card:nth-child(2) .reward-pill { color: #fff; }
@@ -261,17 +266,23 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .route-heading>span { display: none; }
   .route-grid { grid-template-columns: 1fr; gap: 10px; }
   .route-card,.route-card:nth-child(n) { grid-column: 1; border-radius: 23px; }
-  .route-main { grid-template-columns: 48px 1fr auto; min-height: 125px; padding: 18px; }
+  .route-main { grid-template-columns: 60px 1fr auto; min-height: 137px; padding: 18px; }
+  .mission-symbol { width: 60px; height: 60px; border-radius: 19px; }
+  .mission-symbol svg { width: 41px; height: 41px; }
   .route-card:nth-child(2) .route-main { min-height: 146px; }
   .route-copy strong { font-size: 16px; }
   .reward-pill { min-width: 54px; }
   .bottom-cards { grid-template-columns: 1fr; margin-top: 26px; }
   .bottom-cards button { min-height: 190px; border-radius: 25px; }
   .bottom-cards strong { font-size: 28px; }
-  .mobile-nav { position: fixed; z-index: 20; left: 50%; bottom: 8px; display: grid; grid-template-columns: repeat(4,1fr); width: min(calc(100% - 20px),550px); padding: 7px; border: 1px solid rgba(255,255,255,.78); border-radius: 21px; background: rgba(250,250,252,.82); box-shadow: 0 14px 50px rgba(20,30,40,.18); transform: translateX(-50%); backdrop-filter: saturate(180%) blur(24px); }
-  .mobile-nav button { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 2px; border: 0; background: transparent; color: #8e8e93; font-size: 8px; cursor: pointer; }
-  .mobile-nav b { font-size: 16px; }
-  .mobile-nav .active { color: #0071e3; }
+  .mobile-nav { position: fixed; z-index: 20; left: 50%; bottom: max(10px,env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(4,1fr); width: min(calc(100% - 18px),550px); min-height: 76px; padding: 7px; border: 1px solid rgba(255,255,255,.88); border-radius: 26px; background: rgba(247,248,251,.82); box-shadow: 0 22px 60px rgba(18,31,45,.22),inset 0 1px rgba(255,255,255,.9); transform: translateX(-50%); backdrop-filter: saturate(190%) blur(28px); }
+  .mobile-nav button { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; padding: 8px 3px 6px; border: 0; border-radius: 19px; background: transparent; color: #8e8e93; font-size: 8px; font-weight: 650; cursor: pointer; transition: color .2s ease,background .2s ease,transform .2s ease; }
+  .mobile-nav button::before { content: ""; position: absolute; inset: 3px 7px; z-index: -1; border-radius: 17px; background: transparent; transition: background .2s ease,box-shadow .2s ease; }
+  .mobile-nav svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .22s cubic-bezier(.2,.8,.2,1); }
+  .mobile-nav button span { line-height: 1; }
+  .mobile-nav .active { color: #0877e6; }
+  .mobile-nav .active::before { background: rgba(255,255,255,.93); box-shadow: 0 8px 18px rgba(31,53,74,.11),inset 0 0 0 1px rgba(0,113,227,.055); }
+  .mobile-nav .active svg { transform: translateY(-1px) scale(1.08); filter: drop-shadow(0 3px 5px rgba(0,113,227,.18)); }
   .activity-shell,.plain-screen { width: min(100% - 20px,560px); padding-top: 8px; }
   .activity-header,.screen-top { top: 7px; }
   .activity-card { padding: 27px 17px; border-radius: 25px; }
@@ -292,7 +303,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .hero-content h1 { font-size: 44px; }
   .hero-actions { align-items: flex-start; flex-direction: column; gap: 9px; }
   .hero-progress { padding-left: 5px; }
-  .route-main { grid-template-columns: 44px 1fr; }
+  .route-main { grid-template-columns: 58px 1fr; }
   .reward-pill { grid-column: 2; justify-self: start; }
   .dashboard-strip strong { font-size: 24px; }
   .mood-row button { height: 49px; font-size: 20px; }
