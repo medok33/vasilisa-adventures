@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 type MissionId = "morning" | "reading" | "math" | "english" | "order" | "kindness" | "independence";
 type View = "home" | "wallet" | "journal" | "parent" | MissionId;
 type NavSection = "today" | "wallet" | "journal" | "parent";
+type CelebrationEvent = { id: MissionId; text: string; stars: number };
 type Progress = {
   done: MissionId[];
   morningChecks: string[];
@@ -99,7 +100,7 @@ export default function Adventure() {
   const [saveState, setSaveState] = useState<"saving" | "saved" | "offline">("saving");
   const [mathChecked, setMathChecked] = useState(false);
   const [englishChecked, setEnglishChecked] = useState(false);
-  const [celebration, setCelebration] = useState<string | null>(null);
+  const [celebration, setCelebration] = useState<CelebrationEvent | null>(null);
 
   const readingStars = progress.done.includes("reading")
     ? progress.readingMinutes >= 25 && progress.readingAnswer.trim().length >= 8 ? 3 : progress.readingMinutes >= 20 ? 2 : 1
@@ -140,10 +141,12 @@ export default function Adventure() {
     if (closed) return;
     setProgress((current) => { const next = [...current[field]]; next[index] = value; return { ...current, [field]: next }; });
   }
-  function complete(id: MissionId, message: string) {
+  function complete(id: MissionId, message: string, stars = 1) {
     if (closed) return;
     setProgress((current) => ({ ...current, done: current.done.includes(id) ? current.done : [...current.done, id] }));
-    setCelebration(message); window.setTimeout(() => { setCelebration(null); setView("home"); }, 1200);
+    setCelebration({ id, text: message, stars });
+    navigator.vibrate?.([35, 30, 75]);
+    window.setTimeout(() => { setCelebration(null); setView("home"); }, 2400);
   }
   function reopenMission(id: MissionId) { if (!closed) setProgress((current) => ({ ...current, done: current.done.filter((item) => item !== id) })); }
   function jumpTo(section: NavSection) {
@@ -173,39 +176,39 @@ export default function Adventure() {
             <div className="field-pair"><label><span>Начала со страницы</span><input inputMode="numeric" value={progress.readingStart} onChange={(e) => patch({ readingStart: e.target.value })} placeholder="например, 25" /></label><label><span>Закончила на странице</span><input inputMode="numeric" value={progress.readingEnd} onChange={(e) => patch({ readingEnd: e.target.value })} placeholder="например, 37" /></label></div>
             {progress.readingMinutes >= 25 && <label className="long-field"><span>Кого из героев ты взяла бы с собой в путешествие и почему?</span><textarea value={progress.readingAnswer} onChange={(e) => patch({ readingAnswer: e.target.value })} placeholder="Напиши 1–2 предложения своими словами" /></label>}
             <div className="live-result"><span>Сейчас открывается</span><strong>{readingPotential} из 3 ⭐</strong></div>
-            <ActionButton disabled={!readingReady || (progress.readingMinutes >= 25 && progress.readingAnswer.trim().length < 8)} onClick={() => complete("reading", `Книжный портал: +${readingPotential} ⭐`)}>Закрыть книжный квест</ActionButton>
+            <ActionButton disabled={!readingReady || (progress.readingMinutes >= 25 && progress.readingAnswer.trim().length < 8)} onClick={() => complete("reading", "Книжный портал открыт", readingPotential)}>Закрыть книжный квест</ActionButton>
           </>}
           {view === "math" && <>
             <Intro title="Введи код экспедиции" text="Реши пять заданий. Ошибка ничего не отнимает — можно исправлять сколько нужно." />
             <div className="math-list">{mathQuestions.map((question, index) => { const value = progress.mathAnswers[index] ?? ""; const ok = value.trim() === question.answer; return <label className={mathChecked ? ok ? "correct" : "wrong" : ""} key={question.label}><span><small>Задание {index + 1}</small>{question.label}</span><input inputMode="numeric" value={value} onChange={(e) => { setMathChecked(false); setAnswer("mathAnswers", index, e.target.value); }} placeholder="Ответ" />{mathChecked && <b>{ok ? "Верно" : "Проверь"}</b>}</label>; })}</div>
             {mathChecked && !mathAllCorrect && <Feedback>Не всё сошлось. Исправь отмеченные ответы — попытки не ограничены.</Feedback>}
-            <ActionButton disabled={progress.mathAnswers.some((item) => !item)} onClick={() => { setMathChecked(true); if (mathAllCorrect) complete("math", "Шифр разгадан: +2 ⭐"); }}>{mathChecked && mathAllCorrect ? "Шифр открыт!" : "Проверить ответы"}</ActionButton>
+            <ActionButton disabled={progress.mathAnswers.some((item) => !item)} onClick={() => { setMathChecked(true); if (mathAllCorrect) complete("math", "Шифр экспедиции разгадан", 2); }}>{mathChecked && mathAllCorrect ? "Шифр открыт!" : "Проверить ответы"}</ActionButton>
           </>}
           {view === "english" && <>
             <Intro title="Собери словарь разведчика" text="Нажми на правильное английское слово. В последнем задании выбери перевод фразы." />
             <div className="english-list">{englishQuestions.map((question, index) => { const chosen = progress.englishAnswers[index]; const ok = chosen === question.answer; return <article className={englishChecked ? ok ? "correct" : "wrong" : ""} key={question.label}><div className="word-prompt"><strong>{question.icon}</strong><span>{question.label}</span></div><div className="word-options">{question.options.map((option) => <button className={chosen === option ? "chosen" : ""} onClick={() => { setEnglishChecked(false); setAnswer("englishAnswers", index, option); }} key={option}>{option}</button>)}</div>{englishChecked && <small>{ok ? "Точно!" : "Попробуй другой вариант"}</small>}</article>; })}</div>
             {englishChecked && !englishAllCorrect && <Feedback>Есть неточности. Посмотри на подсказки и попробуй ещё раз.</Feedback>}
-            <ActionButton disabled={progress.englishAnswers.some((item) => !item)} onClick={() => { setEnglishChecked(true); if (englishAllCorrect) complete("english", "English-разведка: +1 ⭐"); }}>Проверить всю разведку</ActionButton>
+            <ActionButton disabled={progress.englishAnswers.some((item) => !item)} onClick={() => { setEnglishChecked(true); if (englishAllCorrect) complete("english", "English-разведка завершена"); }}>Проверить всю разведку</ActionButton>
           </>}
           {view === "order" && <>
             <Intro title="Порядок за пять минут" text="Поставь таймер и двигайся по списку. Важно не идеально, а самостоятельно довести небольшой участок до конца." />
             <div className="timer-card"><span>05:00</span><p>Включи обычный таймер на телефоне и начинай</p></div>
             <CheckList items={orderItems} selected={progress.orderChecks} onToggle={(id) => toggleList("orderChecks", id)} />
-            <ActionButton disabled={progress.orderChecks.length < 3} onClick={() => complete("order", "Остров порядка готов: +1 ⭐")}>Порядок наведен</ActionButton>
+            <ActionButton disabled={progress.orderChecks.length < 3} onClick={() => complete("order", "Остров порядка готов")}>Порядок наведен</ActionButton>
           </>}
           {view === "kindness" && <>
             <Intro title="Добро не считается по кнопке" text="Выбери одно настоящее действие. Вечером мама просто подтвердит, что миссия состоялась." />
             <ChoiceList options={kindnessOptions} selected={progress.kindnessChoice} onSelect={(kindnessChoice) => patch({ kindnessChoice })} />
             <label className="long-field optional"><span>Что именно ты сделала? <em>необязательно</em></span><textarea value={progress.kindnessNote} onChange={(e) => patch({ kindnessNote: e.target.value })} placeholder="Можно оставить маленькую заметку" /></label>
-            <ActionButton disabled={!progress.kindnessChoice} onClick={() => complete("kindness", "Добрая миссия: +1 ⭐")}>Миссия сделана</ActionButton>
+            <ActionButton disabled={!progress.kindnessChoice} onClick={() => complete("kindness", "Добрая миссия выполнена")}>Миссия сделана</ActionButton>
           </>}
           {view === "independence" && <>
             <Intro title="Что получилось без напоминания?" text="Выбери только то, о чём сегодня действительно вспомнила сама. Эту звезду вечером подтверждает мама." />
             <ChoiceList options={independenceOptions} selected={progress.independenceChoice} onSelect={(independenceChoice) => patch({ independenceChoice })} />
-            <ActionButton disabled={!progress.independenceChoice} onClick={() => complete("independence", "Самостоятельность: +1 ⭐")}>Я действительно сделала сама</ActionButton>
+            <ActionButton disabled={!progress.independenceChoice} onClick={() => complete("independence", "Суперспособность открыта")}>Я действительно сделала сама</ActionButton>
           </>}
         </section>
-        {celebration && <Celebration text={celebration} />}
+        {celebration && <Celebration event={celebration} />}
       </main>
     );
   }
@@ -275,7 +278,20 @@ function CheckList({ items, selected, onToggle }: { items: string[][]; selected:
 function ChoiceList({ options, selected, onSelect }: { options: string[]; selected: string; onSelect: (value: string) => void }) { return <div className="choice-list">{options.map((option,index)=><button className={selected===option?"selected":""} onClick={()=>onSelect(option)} key={option}><span>{String.fromCharCode(65+index)}</span><strong>{option}</strong><i>{selected===option?"✓":""}</i></button>)}</div>; }
 function ActionButton({ children, disabled, onClick }: { children: React.ReactNode; disabled?: boolean; onClick: () => void }) { return <button className="primary-action" disabled={disabled} onClick={onClick}>{children}</button>; }
 function Feedback({ children }: { children: React.ReactNode }) { return <div className="feedback">{children}</div>; }
-function Celebration({ text }: { text: string }) { return <div className="celebration"><div><span>★</span><strong>{text}</strong><p>Прогресс сохранён</p></div></div>; }
+function Celebration({ event }: { event: CelebrationEvent }) {
+  return <div className={`celebration celebration-${event.id}`} role="status" aria-live="polite">
+    <div className="celebration-aurora"/>
+    <div className="celebration-rings"><i/><i/><i/></div>
+    <div className="confetti-field">{Array.from({length:18},(_,index)=><i key={index}/>)}</div>
+    <div className="celebration-panel">
+      <div className="reward-emblem"><MissionIcon id={event.id}/><span className="reward-star"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="m16 2.8 4 8.1 9 1.3-6.5 6.3 1.5 8.9-8-4.2-8 4.2 1.5-8.9L3 12.2l9-1.3Z"/></svg></span></div>
+      <span className="celebration-kicker">Миссия выполнена</span>
+      <strong>{event.text}</strong>
+      <div className="reward-count"><b>+{event.stars}</b><span>{event.stars === 1 ? "звезда" : event.stars < 5 ? "звезды" : "звёзд"}</span></div>
+      <p><i/> Прогресс сохранён</p>
+    </div>
+  </div>;
+}
 
 function ScreenTop({ title, subtitle, onBack }: { title: string; subtitle: string; onBack: () => void }) { return <header className="screen-top"><button onClick={onBack}>←</button><div><strong>{title}</strong><span>{subtitle}</span></div></header>; }
 function WalletScreen({ progress, patch, todayLimit, tomorrowLimit, onBack }: { progress: Progress; patch: (next: Partial<Progress>) => void; todayLimit: number; tomorrowLimit: number; onBack: () => void }) { const left=Math.max(0,progress.goalAmount-progress.balance); const percent=progress.goalAmount?Math.min(100,Math.round(progress.balance/progress.goalAmount*100)):0; return <main className="plain-screen"><ScreenTop title="Моя копилка" subtitle="Деньги не сгорают" onBack={onBack}/><section className="wallet-hero"><span>Сейчас в копилке</span><strong>{progress.balance.toLocaleString("ru-RU")} ₽</strong><p>Сегодня можно потратить не больше {todayLimit} ₽. Завтра уже открыто {tomorrowLimit} ₽.</p></section><section className="goal-panel"><div><span>Моя цель</span><strong>{progress.goalTitle||"Цель пока не выбрана"}</strong><small>{progress.goalAmount?`Осталось накопить ${left.toLocaleString("ru-RU")} ₽`:"Выбрать цель можно вместе с мамой"}</small></div><b>{percent}%</b><div className="goal-line"><i style={{width:`${percent}%`}}/></div></section><section className="money-lesson"><span>Решение дня</span><h2>Хочу сейчас или коплю?</h2><p>Если потратить 120 ₽ сегодня, в копилке останется {Math.max(0,progress.balance-120).toLocaleString("ru-RU")} ₽. Если не тратить — цель станет ближе ещё на 120 ₽.</p><div><button className={progress.decision==="spend"?"selected":""} onClick={()=>patch({decision:"spend"})}>Потратить сегодня</button><button className={progress.decision==="save"?"selected":""} onClick={()=>patch({decision:"save"})}>Оставить в копилке</button></div>{progress.decision&&<strong className="decision-result">{progress.decision==="save"?"Решение сохранено: сегодня копим":"Решение сохранено: можно потратить"}</strong>}<small>Правильного ответа нет. Важно понимать последствия.</small></section></main>; }
