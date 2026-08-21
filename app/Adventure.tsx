@@ -214,28 +214,29 @@ export default function Adventure() {
       <header className="app-header">
         <button className="profile-dot" type="button" aria-label="Профиль Василисы">В</button>
         <div><strong>Приключения Василисы</strong><span>{dayLabel(day)}</span></div>
+        <nav className="desktop-nav" aria-label="Разделы приложения"><button className="active" onClick={() => setView("home")}>Сегодня</button><button onClick={() => setView("wallet")}>Копилка</button><button onClick={() => setView("journal")}>Мой день</button></nav>
         <div className={`sync-state ${saveState}`}>{saveState === "saved" ? "Сохранено" : saveState === "saving" ? "Сохраняю" : "Без связи"}</div>
       </header>
 
       <section className="game-hero">
-        <div className="hero-content"><p className="hero-label">Солнечная экспедиция · день 1</p><h1>Сегодня ты управляешь маршрутом</h1><p>Семь коротких миссий. Можно проходить в любом порядке и возвращаться к незавершённым.</p><div className="hero-actions"><button onClick={() => setView(missions.find((m) => !progress.done.includes(m.id))?.id ?? "journal")}>{earnedStars === 10 ? "Записать итог дня" : "Продолжить маршрут"}</button><span>{progress.done.length} из 7 миссий</span></div></div>
+        <div className="hero-content"><p className="hero-label">День 1 · Солнечная экспедиция</p><h1>Твой день.<br/>Твой маршрут.</h1><p>Семь коротких миссий для ума, характера и хорошего настроения. Начинай с любой.</p><div className="hero-actions"><button onClick={() => setView(missions.find((m) => !progress.done.includes(m.id))?.id ?? "journal")}>{earnedStars === 10 ? "Записать итог дня" : "Следующая миссия"}<span aria-hidden="true">→</span></button><div className="hero-progress"><b>{progress.done.length}/7</b><span>миссий готово</span></div></div></div>
         <img src="/hero-v2.png" alt="Девочка-исследовательница с книгой и маленьким роботом-помощником" />
       </section>
 
       <section className="dashboard-strip">
-        <button onClick={() => setView("wallet")}><span>Сегодняшний лимит</span><strong>{todayLimit} ₽</strong><small>Копилка: {progress.balance.toLocaleString("ru-RU")} ₽</small></button>
-        <div className="star-summary"><span>Звёзды дня</span><strong>{earnedStars}<small>/10</small></strong><div className="mini-stars">{Array.from({length:10},(_,i)=><i className={i<earnedStars?"filled":""} key={i} />)}</div></div>
-        <div><span>Лимит на завтра</span><strong>{tomorrowLimit} ₽</strong><small>Откроется после мамы</small></div>
+        <button className="money-stat" onClick={() => setView("wallet")}><span>Можно сегодня</span><strong>{todayLimit} ₽</strong><small>В копилке {progress.balance.toLocaleString("ru-RU")} ₽ <b>→</b></small></button>
+        <div className="star-summary"><span>Звёзды сегодня</span><strong>{earnedStars}<small> из 10</small></strong><div className="mini-stars">{Array.from({length:10},(_,i)=><i className={i<earnedStars?"filled":""} key={i} />)}</div></div>
+        <div className="tomorrow-stat"><span>Откроется завтра</span><strong>{tomorrowLimit} ₽</strong><small>После проверки мамой</small></div>
       </section>
 
       <section className="route-section">
-        <div className="route-heading"><div><p>Маршрут на сегодня</p><h2>Выбери следующую миссию</h2></div><span>Ошибки не отнимают звёзды</span></div>
+        <div className="route-heading"><div><p>Маршрут на сегодня</p><h2>Миссии дня</h2></div><span>Можно идти в любом порядке · ошибки не отнимают звёзды</span></div>
         <div className="route-grid">{missions.map((mission) => { const done = progress.done.includes(mission.id); return <article className={`route-card ${mission.accent} ${done ? "done" : ""}`} key={mission.id}><button className="route-main" onClick={() => setView(mission.id)}><span className="mission-number">{mission.index}</span><span className="mission-symbol">{mission.symbol}</span><span className="route-copy"><small>{mission.kicker}</small><strong>{mission.title}</strong><p>{mission.note}</p></span><span className="reward-pill">{done ? "Готово" : mission.reward}</span></button>{done && !closed && <button className="redo" onClick={() => reopenMission(mission.id)}>пройти заново</button>}</article>; })}</div>
       </section>
 
       <section className="bottom-cards">
-        <button className="journal-card" onClick={() => setView("journal")}><span>Мой день</span><strong>Что получилось и что рассказать папе</strong><i>Без оценок и денег →</i></button>
-        <button className={`parent-card ${closed ? "closed" : ""}`} onClick={() => setView("parent")}><span>Для мамы</span><strong>{closed ? "День подтверждён" : "Проверить бытовые миссии"}</strong><i>{closed ? `${earnedStars}/10 ⭐ · ${tomorrowLimit} ₽ завтра` : "Закрывается вечером →"}</i></button>
+        <button className="journal-card" onClick={() => setView("journal")}><span>Личное пространство</span><strong>Мой день</strong><p>Что получилось, что было сложно и что рассказать папе.</p><i>Открыть дневник <b>→</b></i></button>
+        <button className={`parent-card ${closed ? "closed" : ""}`} onClick={() => setView("parent")}><span>Для взрослых</span><strong>{closed ? "День подтверждён" : "Проверка дня"}</strong><p>{closed ? "Все результаты сохранены. День можно открыть для исправления." : "Мама подтверждает бытовые миссии и закрывает день вечером."}</p><i>{closed ? `${earnedStars}/10 ⭐ · ${tomorrowLimit} ₽ завтра` : "Перейти к проверке →"}</i></button>
       </section>
 
       <nav className="mobile-nav"><button className="active" onClick={() => setView("home")}><b>⌂</b>Сегодня</button><button onClick={() => setView("wallet")}><b>₽</b>Копилка</button><button onClick={() => setView("journal")}><b>◯</b>Мой день</button><button onClick={() => setView("parent")}><b>✓</b>Маме</button></nav>
