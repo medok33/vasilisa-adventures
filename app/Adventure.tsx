@@ -85,12 +85,13 @@ const englishQuestions = [
   { icon: "I have a book.", label: "Выбери перевод", options: ["У меня есть книга.", "Я вижу дверь.", "Это моя комната."], answer: "У меня есть книга." },
 ];
 
-function berlinDay() { return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(new Date()); }
+const APP_TIME_ZONE = process.env.NEXT_PUBLIC_APP_TIME_ZONE || "Europe/Moscow";
+function currentDay() { return new Intl.DateTimeFormat("sv-SE", { timeZone: APP_TIME_ZONE }).format(new Date()); }
 function dayLabel(day: string) { return new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${day}T12:00:00`)); }
 function clampMoney(value: number) { return Math.max(0, Math.min(1_000_000, Math.round(value || 0))); }
 
 export default function Adventure() {
-  const [day] = useState(berlinDay);
+  const [day] = useState(currentDay);
   const [view, setView] = useState<View>("home");
   const [navSection, setNavSection] = useState<NavSection>("today");
   const [progress, setProgress] = useState<Progress>(emptyProgress);

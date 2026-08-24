@@ -1,0 +1,52 @@
+name: vasilisa-adventures
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: vds/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATA_DIR: /data
+      TZ: Europe/Moscow
+    volumes:
+      - vasilisa_data:/data
+    ports:
+      - "127.0.0.1:3100:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - vasilisa_internal
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - vasilisa_internal
+
+networks:
+  vasilisa_internal:
+    name: vasilisa-adventures-internal
+
+volumes:
+  vasilisa_data:
+    name: vasilisa-adventures-data
+  caddy_data:
+    name: vasilisa-adventures-caddy-data
+  caddy_config:
+    name: vasilisa-adventures-caddy-config
