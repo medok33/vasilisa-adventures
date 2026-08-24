@@ -36,8 +36,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .game-hero,.dashboard-strip,.bottom-cards>button { scroll-margin-top: 92px; }
 .game-hero::before { content: ""; position: absolute; z-index: 1; inset: 0; background: linear-gradient(90deg,rgba(236,246,250,.99) 0%,rgba(236,246,250,.91) 36%,rgba(236,246,250,.22) 63%,rgba(236,246,250,0) 78%); }
 .game-hero::after { content: ""; position: absolute; z-index: 1; left: 5%; bottom: -100px; width: 390px; height: 260px; border-radius: 50%; background: rgba(255,255,255,.55); filter: blur(65px); }
-.hero-art { position: absolute; inset: 0; display: block; }
-.hero-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 53% center; transform: scale(1.015); }
+.hero-art { position: absolute; inset: 0 0 0 46%; display: block; overflow: hidden; background: #dcecf4; }
+.hero-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 24%; transform: scale(1.025); }
 .hero-content { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: center; min-height: 500px; width: 53%; padding: 54px 0 54px 54px; }
 .hero-label { align-self: flex-start; margin: 0 0 20px; padding: 7px 11px; border: 1px solid rgba(255,255,255,.7); border-radius: 99px; color: #24617d; background: rgba(255,255,255,.55); box-shadow: 0 5px 20px rgba(38,87,110,.07); backdrop-filter: blur(12px); font-size: 10px; font-weight: 720; letter-spacing: .035em; }
 .hero-content h1 { margin: 0; color: #102b3c; font-size: clamp(51px,6.2vw,76px); line-height: .94; letter-spacing: -.065em; }
@@ -130,6 +130,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .check-list button:active,.choice-list button:active { transform: scale(.99); }
 .check-list button>span,.choice-list button>span { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; color: #77777d; background: #f2f2f7; font-size: 11px; font-weight: 750; }
 .check-list button.checked,.choice-list button.selected { border-color: transparent; background: var(--soft); }
+.check-list button.checked,.choice-list button.selected,.reading-levels button.selected,.word-options button.chosen { box-shadow: inset 0 0 0 2px color-mix(in srgb,var(--accent) 34%,transparent),0 8px 22px color-mix(in srgb,var(--accent) 12%,transparent); }
 .check-list button.checked>span,.choice-list button.selected>span { color: #fff; background: var(--accent); }
 .check-list strong,.choice-list strong { font-size: 13px; }
 .choice-list i { color: var(--accent); font-style: normal; font-weight: 800; }
@@ -244,13 +245,27 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .journal-sheet label span { color: #5e5e63; font-size: 11px; font-weight: 650; }
 .journal-sheet textarea { min-height: 94px; padding: 14px; border: 0; border-radius: 14px; background: #f5f5f7; resize: vertical; }
 .journal-sheet .primary-action { margin-top: 10px; }
-.dad-contact { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin: 21px 0 13px; padding: 16px; border-radius: 19px; color: #fff; background: linear-gradient(135deg,#4c63e7,#7a5de8); box-shadow: 0 14px 34px rgba(77,81,210,.2); }
+.dad-contact { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin: 21px 0 8px; padding: 17px; border-radius: 21px; color: #fff; background: linear-gradient(135deg,#385ed9,#7559df); box-shadow: 0 14px 34px rgba(77,81,210,.2); }
 .dad-contact>div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .dad-contact strong { font-size: 13px; }
 .dad-contact>div span { color: rgba(255,255,255,.72); font-size: 9px; line-height: 1.35; }
-.dad-contact a,.dad-contact button { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; min-height: 43px; padding: 0 13px; border: 1px solid rgba(255,255,255,.25); border-radius: 14px; color: #3c3c71; background: #fff; box-shadow: 0 8px 22px rgba(29,27,101,.19); font-size: 10px; font-weight: 750; text-decoration: none; }
+.dad-contact .dad-contact-actions { display: grid; grid-template-columns: repeat(3,minmax(72px,1fr)); gap: 7px; }
+.dad-contact a,.dad-contact button { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 7px; min-height: 48px; padding: 0 11px; border: 1px solid rgba(255,255,255,.25); border-radius: 15px; color: #3c3c71; background: #fff; box-shadow: 0 8px 22px rgba(29,27,101,.19); font-size: 10px; font-weight: 750; text-decoration: none; transition: transform .18s ease,box-shadow .18s ease; }
+.dad-contact a:hover { transform: translateY(-2px); box-shadow: 0 11px 25px rgba(29,27,101,.24); }
 .dad-contact button:disabled { opacity: .52; }
 .dad-contact a>img,.dad-contact button>img { width: 29px; height: 29px; object-fit: contain; }
+.dad-contact a>span:last-child { color: #3c3c71; font-size: 9px; font-weight: 760; }
+.contact-mark { display: grid!important; place-items: center; flex: 0 0 auto; width: 29px; height: 29px; border-radius: 10px; color: #fff!important; font-size: 9px!important; font-weight: 850; letter-spacing: -.02em; }
+.contact-mark.vk { background: #07f; }
+.contact-mark.max { background: linear-gradient(145deg,#6f5bff,#bc55eb); font-size: 7px!important; }
+.dad-phone { margin: 0 4px 17px; color: #85858b; font-size: 10px; }
+.dad-phone a { color: #0068cc; font-weight: 700; text-decoration: none; }
+.day-locked { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 16px; padding: 16px 17px; border: 1px solid rgba(255,159,10,.22); border-radius: 18px; color: #6d4a13; background: #fff7e6; box-shadow: 0 10px 28px rgba(103,70,16,.08); }
+.day-locked>div { display: flex; flex-direction: column; gap: 3px; }
+.day-locked strong { font-size: 12px; }
+.day-locked span { color: #8d7044; font-size: 9px; line-height: 1.4; }
+.day-locked button { flex: 0 0 auto; min-height: 40px; padding: 0 13px; border: 0; border-radius: 12px; color: #fff; background: #d68400; font-size: 9px; font-weight: 740; cursor: pointer; }
+.activity-card.is-locked> :not(.day-locked) { opacity: .46; pointer-events: none; user-select: none; }
 .parent-summary { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
 .parent-summary>div { padding: 28px; }
 .parent-summary>div:first-child { border-right: 1px solid var(--line); }
@@ -305,6 +320,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .game-hero { min-height: 470px; border-radius: 27px; background: #d8e1e8; box-shadow: 0 18px 52px rgba(34,51,69,.16); }
   .game-hero::before { background: linear-gradient(180deg,rgba(15,27,42,0) 0%,rgba(15,27,42,0) 48%,rgba(15,27,42,.13) 70%,rgba(15,27,42,.45) 100%); }
   .game-hero::after { right: -16%; left: auto; bottom: -185px; width: 130%; height: 350px; background: rgba(255,255,255,.4); filter: blur(78px); }
+  .hero-art { inset: 0; }
   .hero-art img { object-position: 50% 38%; transform: none; }
   .hero-content { position: absolute; right: 10px; bottom: 10px; left: 10px; justify-content: flex-start; width: auto; min-height: 0; padding: 16px; border: 1px solid rgba(255,255,255,.78); border-radius: 21px; background: rgba(255,255,255,.86); box-shadow: 0 17px 44px rgba(22,36,52,.22),inset 0 1px rgba(255,255,255,.95); backdrop-filter: saturate(170%) blur(24px); }
   .hero-label { margin-bottom: 7px; padding: 6px 9px; font-size: 8px; }
@@ -348,7 +364,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .mobile-nav .active { color: #0877e6; }
   .mobile-nav .active::before { background: rgba(255,255,255,.93); box-shadow: 0 8px 18px rgba(31,53,74,.11),inset 0 0 0 1px rgba(0,113,227,.055); }
   .mobile-nav .active svg { transform: translateY(-1px) scale(1.08); filter: drop-shadow(0 3px 5px rgba(0,113,227,.18)); }
-  .activity-shell,.plain-screen { width: min(100% - 20px,560px); padding-top: 8px; }
+  .activity-shell,.plain-screen { width: min(100% - 20px,560px); padding-top: 8px; padding-bottom: 104px; }
   .activity-header,.screen-top { top: 7px; }
   .activity-card { padding: 27px 17px; border-radius: 25px; }
   .activity-intro h1 { font-size: 36px; }
@@ -370,7 +386,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .mood-row button { height: 70px; border-radius: 15px; }
   .mood-icon { width: 38px; height: 38px; }
   .dad-contact { align-items: stretch; flex-direction: column; }
-  .dad-contact a,.dad-contact button { justify-content: center; width: 100%; }
+  .dad-contact .dad-contact-actions { grid-template-columns: repeat(3,1fr); }
+  .dad-contact a,.dad-contact button { justify-content: center; width: 100%; padding-inline: 7px; }
+  .day-locked { align-items: stretch; flex-direction: column; }
+  .day-locked button { width: 100%; }
 }
 @media (max-width: 410px) {
   .game-hero { min-height: 445px; }

@@ -41,6 +41,10 @@ type Mission = {
   accent: string;
 };
 
+const DAD_PHONE = "+79209400222";
+const DAD_VK_URL = "https://vk.me/akuznetsovv";
+const DAD_MAX_URL = `https://max.ru/:share?text=${encodeURIComponent("Папа, привет! Это Василиса 👋")}`;
+
 const missions: Mission[] = [
   { id: "morning", index: "01", kicker: "Начало дня", title: "Утренний запуск", note: "4 простых шага для бодрого старта", reward: "1 ⭐", accent: "sun" },
   { id: "reading", index: "02", kicker: "Главный квест", title: "Изумрудная книга", note: "Чтение, страницы и вопрос по сюжету", reward: "до 3 ⭐", accent: "mint" },
@@ -55,7 +59,7 @@ const emptyProgress: Progress = {
   done: [], morningChecks: [], readingStart: "", readingEnd: "", readingMinutes: 15, readingAnswer: "",
   mathAnswers: ["", "", "", "", ""], englishAnswers: ["", "", "", "", "", ""], orderChecks: [],
   kindnessChoice: "", kindnessNote: "", independenceChoice: "", mood: "", goodThing: "", hardThing: "", dadNote: "",
-  balance: 0, goalTitle: "", goalAmount: 0, phone: "", reserveStar: false, decision: "",
+  balance: 0, goalTitle: "", goalAmount: 0, phone: DAD_PHONE, reserveStar: false, decision: "",
 };
 
 const morningItems = [
@@ -93,7 +97,6 @@ function clampMoney(value: number) { return Math.max(0, Math.min(1_000_000, Math
 export default function Adventure() {
   const [day] = useState(currentDay);
   const [view, setView] = useState<View>("home");
-  const [navSection, setNavSection] = useState<NavSection>("today");
   const [progress, setProgress] = useState<Progress>(emptyProgress);
   const [todayLimit, setTodayLimit] = useState(100);
   const [closed, setClosed] = useState(false);
@@ -111,21 +114,20 @@ export default function Adventure() {
     return Math.min(10, fixed + readingStars + (progress.reserveStar && fixed + readingStars === 9 ? 1 : 0));
   }, [progress.done, progress.reserveStar, readingStars]);
   const tomorrowLimit = 100 + earnedStars * 15;
-  const goalLeft = Math.max(0, progress.goalAmount - progress.balance);
 
   useEffect(() => {
     fetch(`/api/progress?day=${day}`).then(async (response) => {
       if (!response.ok) throw new Error("load");
       const data = await response.json() as { progress?: Partial<Progress>; closed?: boolean; todayLimit?: number };
-      setProgress({ ...emptyProgress, ...(data.progress ?? {}), done: (data.progress?.done ?? []) as MissionId[] });
+      setProgress({ ...emptyProgress, ...(data.progress ?? {}), phone: data.progress?.phone || DAD_PHONE, done: (data.progress?.done ?? []) as MissionId[] });
       setClosed(Boolean(data.closed)); setTodayLimit(Number(data.todayLimit) || 100); setSaveState("saved"); setLoaded(true);
     }).catch(() => { setLoaded(true); setSaveState("offline"); });
   }, [day]);
 
   useEffect(() => {
     if (!loaded) return;
-    setSaveState("saving");
     const timer = window.setTimeout(() => {
+      setSaveState("saving");
       fetch("/api/progress", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ day, progress, stars: earnedStars, closed }) })
         .then((response) => { if (!response.ok) throw new Error("save"); setSaveState("saved"); })
         .catch(() => setSaveState("offline"));
@@ -150,7 +152,6 @@ export default function Adventure() {
     window.setTimeout(() => { setCelebration(null); setView("home"); }, 2400);
   }
   function openSection(section: NavSection) {
-    setNavSection(section);
     if (section === "today") {
       setView("home");
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -158,6 +159,8 @@ export default function Adventure() {
     }
     setView(section === "parent" ? "parent" : section);
   }
+  const activeSection: NavSection = view === "wallet" || view === "journal" || view === "parent" ? view : "today";
+  const bottomNav = <BottomNav active={activeSection} onOpen={openSection} />;
 
   const mathAllCorrect = mathQuestions.every((question, index) => progress.mathAnswers[index]?.trim() === question.answer);
   const englishAllCorrect = englishQuestions.every((question, index) => progress.englishAnswers[index] === question.answer);
@@ -166,10 +169,11 @@ export default function Adventure() {
 
   if (view !== "home" && view !== "wallet" && view !== "journal" && view !== "parent") {
     const mission = missions.find((item) => item.id === view)!;
-    return (
+    return <>
       <main className={`activity-shell ${mission.accent}`}>
         <ActivityHeader mission={mission} onBack={() => setView("home")} done={progress.done.includes(mission.id)} />
-        <section className="activity-card">
+        <section className={`activity-card ${closed ? "is-locked" : ""}`}>
+          {closed && <DayLockedBanner onUnlock={() => setClosed(false)} />}
           {view === "morning" && <>
             <Intro title="Запусти день спокойно" text="Отмечай по одному пункту. За весь блок начисляется одна звезда — не за каждое действие отдельно." />
             <CheckList items={morningItems} selected={progress.morningChecks} onToggle={(id) => toggleList("morningChecks", id)} />
@@ -215,28 +219,26 @@ export default function Adventure() {
         </section>
         {celebration && <Celebration event={celebration} />}
       </main>
-    );
+      {bottomNav}
+    </>;
   }
 
-  if (view === "wallet") return <WalletScreen progress={progress} patch={patch} todayLimit={todayLimit} tomorrowLimit={tomorrowLimit} onBack={() => setView("home")} />;
-  if (view === "journal") return <JournalScreen progress={progress} patch={patch} onBack={() => setView("home")} />;
-  if (view === "parent") return <ParentScreen progress={progress} patch={patch} closed={closed} setClosed={setClosed} stars={earnedStars} tomorrowLimit={tomorrowLimit} onBack={() => setView("home")} onOpenMission={(id) => setView(id)} />;
+  if (view === "wallet") return <><WalletScreen progress={progress} patch={patch} todayLimit={todayLimit} tomorrowLimit={tomorrowLimit} closed={closed} onUnlock={() => setClosed(false)} onBack={() => setView("home")} />{bottomNav}</>;
+  if (view === "journal") return <><JournalScreen progress={progress} patch={patch} closed={closed} onUnlock={() => setClosed(false)} onBack={() => setView("home")} />{bottomNav}</>;
+  if (view === "parent") return <><ParentScreen progress={progress} patch={patch} closed={closed} setClosed={setClosed} stars={earnedStars} tomorrowLimit={tomorrowLimit} onBack={() => setView("home")} onOpenMission={(id) => setView(id)} />{bottomNav}</>;
 
   return (
     <main className="app-shell">
       <header className="app-header">
         <button className="profile-dot" type="button" aria-label="Профиль Василисы">В</button>
         <div><strong>Приключения Василисы</strong><span>{dayLabel(day)}</span></div>
-        <nav className="desktop-nav" aria-label="Разделы приложения"><button className={navSection==="today"?"active":""} onClick={() => openSection("today")}>Сегодня</button><button className={navSection==="wallet"?"active":""} onClick={() => openSection("wallet")}>Копилка</button><button className={navSection==="journal"?"active":""} onClick={() => openSection("journal")}>Мой день</button></nav>
+        <nav className="desktop-nav" aria-label="Разделы приложения"><button className={activeSection==="today"?"active":""} onClick={() => openSection("today")}>Сегодня</button><button className={activeSection==="wallet"?"active":""} onClick={() => openSection("wallet")}>Копилка</button><button className={activeSection==="journal"?"active":""} onClick={() => openSection("journal")}>Мой день</button></nav>
         <div className={`sync-state ${saveState}`}>{saveState === "saved" ? "Сохранено" : saveState === "saving" ? "Сохраняю" : "Без связи"}</div>
       </header>
 
       <section className="game-hero" id="today-anchor">
         <div className="hero-content"><p className="hero-label">День 1 · Солнечная экспедиция</p><h1>Твой день.<br/>Твой маршрут.</h1><p>Семь коротких миссий для ума, характера и хорошего настроения. Начинай с любой.</p><div className="hero-actions"><button onClick={() => setView(missions.find((m) => !progress.done.includes(m.id))?.id ?? "journal")}>{earnedStars === 10 ? "Записать итог дня" : "Следующая миссия"}<span aria-hidden="true">→</span></button><div className="hero-progress"><b>{progress.done.length}/7</b><span>миссий готово</span></div></div></div>
-        <picture className="hero-art">
-          <source media="(max-width: 760px)" srcSet="/vasilisa-hero-cartoon-v4.webp" type="image/webp" />
-          <img src="/hero-v2.png" alt="Мультяшная девочка с двумя косами держит светящуюся звезду" />
-        </picture>
+        <picture className="hero-art"><img src="/vasilisa-hero-cartoon-v4.webp" alt="Мультяшная Василиса с двумя косами держит светящуюся звезду" /></picture>
       </section>
 
       <section className="dashboard-strip" id="wallet-anchor">
@@ -255,9 +257,17 @@ export default function Adventure() {
         <button id="parent-anchor" className={`parent-card ${closed ? "closed" : ""}`} onClick={() => setView("parent")}><span>Для взрослых</span><strong>{closed ? "День подтверждён" : "Проверка дня"}</strong><p>{closed ? "Все результаты сохранены. День можно открыть для исправления." : "Мама подтверждает бытовые миссии и закрывает день вечером."}</p><i>{closed ? `${earnedStars}/10 ⭐ · ${tomorrowLimit} ₽ завтра` : "Перейти к проверке →"}</i></button>
       </section>
 
-      <nav className="mobile-nav" aria-label="Основные разделы"><button className={navSection==="today"?"active":""} onClick={() => openSection("today")}><NavIcon name="home"/><span>Сегодня</span></button><button className={navSection==="wallet"?"active":""} onClick={() => openSection("wallet")}><NavIcon name="wallet"/><span>Копилка</span></button><button className={navSection==="journal"?"active":""} onClick={() => openSection("journal")}><NavIcon name="journal"/><span>Мой день</span></button><button className={navSection==="parent"?"active":""} onClick={() => openSection("parent")}><NavIcon name="parent"/><span>Маме</span></button></nav>
+      {bottomNav}
     </main>
   );
+}
+
+function BottomNav({ active, onOpen }: { active: NavSection; onOpen: (section: NavSection) => void }) {
+  return <nav className="mobile-nav" aria-label="Основные разделы"><button className={active==="today"?"active":""} onClick={() => onOpen("today")}><NavIcon name="home"/><span>Сегодня</span></button><button className={active==="wallet"?"active":""} onClick={() => onOpen("wallet")}><NavIcon name="wallet"/><span>Копилка</span></button><button className={active==="journal"?"active":""} onClick={() => onOpen("journal")}><NavIcon name="journal"/><span>Мой день</span></button><button className={active==="parent"?"active":""} onClick={() => onOpen("parent")}><NavIcon name="parent"/><span>Маме</span></button></nav>;
+}
+
+function DayLockedBanner({ onUnlock }: { onUnlock: () => void }) {
+  return <div className="day-locked" role="status"><div><strong>День уже подтверждён</strong><span>Чтобы изменить ответы или задание, сначала открой день.</span></div><button onClick={onUnlock}>Открыть для исправления</button></div>;
 }
 
 function MissionIcon({ id }: { id: MissionId }) {
@@ -285,6 +295,7 @@ function MoodIcon({ mood }: { mood: typeof moods[number]["id"] }) {
 }
 
 function ContactIcon() { return <img src="/icon-contact-v1.webp" alt="" aria-hidden="true"/>; }
+function ContactMark({ kind }: { kind: "vk" | "max" }) { return <span className={`contact-mark ${kind}`} aria-hidden="true">{kind === "vk" ? "VK" : "MAX"}</span>; }
 
 function ActivityHeader({ mission, onBack, done }: { mission: Mission; onBack: () => void; done: boolean }) {
   return <header className="activity-header"><button onClick={onBack} aria-label="Вернуться к маршруту">←</button><div><span>{mission.kicker}</span><strong>{mission.title}</strong></div><b>{done ? "Готово" : mission.reward}</b></header>;
@@ -310,15 +321,15 @@ function Celebration({ event }: { event: CelebrationEvent }) {
 }
 
 function ScreenTop({ title, subtitle, onBack }: { title: string; subtitle: string; onBack: () => void }) { return <header className="screen-top"><button onClick={onBack}>←</button><div><strong>{title}</strong><span>{subtitle}</span></div></header>; }
-function WalletScreen({ progress, patch, todayLimit, tomorrowLimit, onBack }: { progress: Progress; patch: (next: Partial<Progress>) => void; todayLimit: number; tomorrowLimit: number; onBack: () => void }) {
+function WalletScreen({ progress, patch, todayLimit, tomorrowLimit, closed, onUnlock, onBack }: { progress: Progress; patch: (next: Partial<Progress>) => void; todayLimit: number; tomorrowLimit: number; closed: boolean; onUnlock: () => void; onBack: () => void }) {
   const left = Math.max(0, progress.goalAmount - progress.balance);
   const percent = progress.goalAmount ? Math.min(100, Math.round(progress.balance / progress.goalAmount * 100)) : 0;
   const [editingGoal, setEditingGoal] = useState(!progress.goalTitle || !progress.goalAmount);
-  return <main className="plain-screen"><ScreenTop title="Моя копилка" subtitle="Деньги не сгорают" onBack={onBack}/><section className="wallet-hero"><span>Сейчас в копилке</span><strong>{progress.balance.toLocaleString("ru-RU")} ₽</strong><p>Сегодня можно потратить не больше {todayLimit} ₽. Завтра уже открыто {tomorrowLimit} ₽.</p></section><section className="goal-panel"><div className="goal-title-row"><div><span>Моя цель</span><strong>{progress.goalTitle || "Выбери, на что копить"}</strong><small>{progress.goalAmount ? `Осталось накопить ${left.toLocaleString("ru-RU")} ₽` : "Придумай цель и укажи её стоимость"}</small></div><b>{percent}%</b></div><div className="goal-line"><i style={{width:`${percent}%`}}/></div><button className="goal-edit-button" onClick={() => setEditingGoal((value) => !value)}>{editingGoal ? "Свернуть настройку" : progress.goalTitle ? "Изменить цель" : "Выбрать цель"}<span>→</span></button>{editingGoal && <div className="goal-editor"><label><span>Что ты хочешь?</span><input value={progress.goalTitle} onChange={e=>patch({goalTitle:e.target.value})} placeholder="Например, ролики"/></label><label><span>Сколько это стоит?</span><input type="number" inputMode="numeric" value={progress.goalAmount || ""} onChange={e=>patch({goalAmount:clampMoney(Number(e.target.value))})} placeholder="5000 ₽"/></label><p>Можно выбрать самой, а потом обсудить с мамой или папой.</p></div>}</section><section className="money-lesson"><span>Решение дня</span><h2>Хочу сейчас или коплю?</h2><p>Если потратить 120 ₽ сегодня, в копилке останется {Math.max(0,progress.balance-120).toLocaleString("ru-RU")} ₽. Если не тратить — цель станет ближе ещё на 120 ₽.</p><div><button className={progress.decision==="spend"?"selected":""} onClick={()=>patch({decision:"spend"})}>Потратить сегодня</button><button className={progress.decision==="save"?"selected":""} onClick={()=>patch({decision:"save"})}>Оставить в копилке</button></div>{progress.decision&&<strong className="decision-result">{progress.decision==="save"?"Решение сохранено: сегодня копим":"Решение сохранено: можно потратить"}</strong>}<small>Правильного ответа нет. Важно понимать последствия.</small></section></main>;
+  return <main className={`plain-screen ${closed ? "screen-locked" : ""}`}><ScreenTop title="Моя копилка" subtitle="Деньги не сгорают" onBack={onBack}/>{closed && <DayLockedBanner onUnlock={onUnlock}/>}<section className="wallet-hero"><span>Сейчас в копилке</span><strong>{progress.balance.toLocaleString("ru-RU")} ₽</strong><p>Сегодня можно потратить не больше {todayLimit} ₽. Завтра уже открыто {tomorrowLimit} ₽.</p></section><section className="goal-panel"><div className="goal-title-row"><div><span>Моя цель</span><strong>{progress.goalTitle || "Выбери, на что копить"}</strong><small>{progress.goalAmount ? `Осталось накопить ${left.toLocaleString("ru-RU")} ₽` : "Придумай цель и укажи её стоимость"}</small></div><b>{percent}%</b></div><div className="goal-line"><i style={{width:`${percent}%`}}/></div><button className="goal-edit-button" onClick={() => setEditingGoal((value) => !value)}>{editingGoal ? "Свернуть настройку" : progress.goalTitle ? "Изменить цель" : "Выбрать цель"}<span>→</span></button>{editingGoal && <div className="goal-editor"><label><span>Что ты хочешь?</span><input value={progress.goalTitle} onChange={e=>patch({goalTitle:e.target.value})} placeholder="Например, ролики"/></label><label><span>Сколько это стоит?</span><input type="number" inputMode="numeric" value={progress.goalAmount || ""} onChange={e=>patch({goalAmount:clampMoney(Number(e.target.value))})} placeholder="5000 ₽"/></label><p>Можно выбрать самой, а потом обсудить с мамой или папой.</p></div>}</section><section className="money-lesson"><span>Решение дня</span><h2>Хочу сейчас или коплю?</h2><p>Если потратить 120 ₽ сегодня, в копилке останется {Math.max(0,progress.balance-120).toLocaleString("ru-RU")} ₽. Если не тратить — цель станет ближе ещё на 120 ₽.</p><div><button className={progress.decision==="spend"?"selected":""} onClick={()=>patch({decision:"spend"})}>Потратить сегодня</button><button className={progress.decision==="save"?"selected":""} onClick={()=>patch({decision:"save"})}>Оставить в копилке</button></div>{progress.decision&&<strong className="decision-result">{progress.decision==="save"?"Решение сохранено: сегодня копим":"Решение сохранено: можно потратить"}</strong>}<small>Правильного ответа нет. Важно понимать последствия.</small></section></main>;
 }
 
 const moods = [{id:"joy",label:"Радостно"},{id:"calm",label:"Спокойно"},{id:"okay",label:"Обычно"},{id:"sad",label:"Грустно"},{id:"tired",label:"Устала"}] as const;
 
-function JournalScreen({ progress, patch, onBack }: { progress: Progress; patch: (next: Partial<Progress>) => void; onBack: () => void }) { return <main className="plain-screen"><ScreenTop title="Мой день" subtitle="Здесь нет оценок и звёзд" onBack={onBack}/><section className="journal-sheet"><h1>Как ты сегодня?</h1><div className="mood-row">{moods.map(mood=><button aria-label={mood.label} title={mood.label} className={progress.mood===mood.id?"selected":""} onClick={()=>patch({mood:mood.id})} key={mood.id}><MoodIcon mood={mood.id}/><span>{mood.label}</span></button>)}</div><label><span>Что сегодня получилось?</span><textarea value={progress.goodThing} onChange={e=>patch({goodThing:e.target.value})} placeholder="Даже маленькая победа считается"/></label><label><span>Что было сложно?</span><textarea value={progress.hardThing} onChange={e=>patch({hardThing:e.target.value})} placeholder="Можно написать честно"/></label><label><span>Что хочешь рассказать папе?</span><textarea value={progress.dadNote} onChange={e=>patch({dadNote:e.target.value})} placeholder="Сообщение сохранится в истории дня"/></label><div className="dad-contact"><div><strong>Хочешь поговорить с папой?</strong><span>{progress.phone ? "Нажми — телефон сразу начнёт звонок" : "Номер добавляется в разделе «Маме»"}</span></div>{progress.phone ? <a href={`tel:${progress.phone}`}><ContactIcon/>Связаться с папой</a> : <button disabled><ContactIcon/>Связаться с папой</button>}</div><button className="primary-action" onClick={onBack}>Сохранить мой день</button></section></main>; }
+function JournalScreen({ progress, patch, closed, onUnlock, onBack }: { progress: Progress; patch: (next: Partial<Progress>) => void; closed: boolean; onUnlock: () => void; onBack: () => void }) { const phone=progress.phone||DAD_PHONE; return <main className={`plain-screen ${closed ? "screen-locked" : ""}`}><ScreenTop title="Мой день" subtitle="Здесь нет оценок и звёзд" onBack={onBack}/>{closed && <DayLockedBanner onUnlock={onUnlock}/>}<section className="journal-sheet"><h1>Как ты сегодня?</h1><div className="mood-row">{moods.map(mood=><button aria-label={mood.label} title={mood.label} className={progress.mood===mood.id?"selected":""} onClick={()=>patch({mood:mood.id})} key={mood.id}><MoodIcon mood={mood.id}/><span>{mood.label}</span></button>)}</div><label><span>Что сегодня получилось?</span><textarea value={progress.goodThing} onChange={e=>patch({goodThing:e.target.value})} placeholder="Даже маленькая победа считается"/></label><label><span>Что было сложно?</span><textarea value={progress.hardThing} onChange={e=>patch({hardThing:e.target.value})} placeholder="Можно написать честно"/></label><label><span>Что хочешь рассказать папе?</span><textarea value={progress.dadNote} onChange={e=>patch({dadNote:e.target.value})} placeholder="Сообщение сохранится в истории дня"/></label><div className="dad-contact"><div><strong>Связаться с папой</strong><span>Позвони или сразу открой удобный мессенджер.</span></div><div className="dad-contact-actions"><a className="phone" href={`tel:${phone}`} aria-label={`Позвонить папе по номеру ${phone}`}><ContactIcon/><span>Позвонить</span></a><a className="vk" href={DAD_VK_URL} target="_blank" rel="noreferrer" aria-label="Написать папе во ВКонтакте"><ContactMark kind="vk"/><span>VK</span></a><a className="max" href={DAD_MAX_URL} target="_blank" rel="noreferrer" aria-label="Написать папе в MAX"><ContactMark kind="max"/><span>MAX</span></a></div></div><p className="dad-phone">Папа · <a href={`tel:${phone}`}>{phone}</a></p><button className="primary-action" onClick={onBack}>Сохранить мой день</button></section></main>; }
 
 function ParentScreen({ progress, patch, closed, setClosed, stars, tomorrowLimit, onBack, onOpenMission }: { progress: Progress; patch: (next: Partial<Progress>) => void; closed: boolean; setClosed: (value: boolean) => void; stars: number; tomorrowLimit: number; onBack: () => void; onOpenMission: (id: MissionId) => void }) { const baseWithoutReserve=stars-(progress.reserveStar?1:0); return <main className="plain-screen parent-screen"><ScreenTop title="Проверка дня" subtitle="Родительский режим" onBack={onBack}/><section className="parent-summary"><div><span>Итог Василисы</span><strong>{stars}/10 ⭐</strong></div><div><span>Лимит завтра</span><strong>{tomorrowLimit} ₽</strong></div></section><section className="review-panel"><h2>Что отмечено сегодня</h2><p className="review-hint">Нажмите на невыполненное задание, чтобы сразу открыть его.</p>{missions.map(m=>{const done=progress.done.includes(m.id);return <button className={done?"completed":"needs-action"} disabled={done||closed} onClick={()=>onOpenMission(m.id)} key={m.id}><span>{done?"✓":""}</span><strong>{m.title}</strong><small>{done?"выполнено":"Открыть →"}</small></button>})}</section><section className="parent-settings"><h2>Запасная звезда</h2><label className={(baseWithoutReserve===9&&!closed)?"":"disabled"}><input type="checkbox" disabled={baseWithoutReserve!==9||closed} checked={progress.reserveStar} onChange={e=>patch({reserveStar:e.target.checked})}/><span><strong>Заменить одну пропущенную миссию</strong><small>Доступно только при результате 9/10. Выше 10/10 итог не поднимется.</small></span></label></section><section className="parent-settings"><h2>Копилка и связь</h2><div className="parent-fields"><label><span>Баланс в Сбербанке, ₽</span><input type="number" disabled={closed} value={progress.balance||""} onChange={e=>patch({balance:clampMoney(Number(e.target.value))})}/></label><label><span>Телефон папы</span><input type="tel" disabled={closed} value={progress.phone} onChange={e=>patch({phone:e.target.value.replace(/[^+\d]/g,"").slice(0,16)})} placeholder="+7…"/></label></div></section><button className={`close-day ${closed?"reopen":""}`} onClick={()=>setClosed(!closed)}>{closed?"Открыть день для исправления":"Подтвердить и закрыть день"}</button><p className="parent-note">После закрытия ребёнок не сможет менять задания. Если отчёт не закрыт, следующий день начнётся с базовых 100 ₽.</p></main>; }
