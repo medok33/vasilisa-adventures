@@ -16,6 +16,8 @@ function cleanPayload(input: ProgressPayload) {
     kindnessChoice: textValue(input.kindnessChoice, 200), kindnessNote: textValue(input.kindnessNote, 400), independenceChoice: textValue(input.independenceChoice, 200),
     mood: textValue(input.mood, 8), goodThing: textValue(input.goodThing, 500), hardThing: textValue(input.hardThing, 500), dadNote: textValue(input.dadNote, 600),
     balance: money(input.balance), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), phone: textValue(input.phone, 16), reserveStar: Boolean(input.reserveStar), decision: textValue(input.decision, 12),
+    savingsTransfer: Math.floor(money(input.savingsTransfer) / 10) * 10, savingsApplied: Boolean(input.savingsApplied),
+    motherSignature: textValue(input.motherSignature, 200_000), signedAt: textValue(input.signedAt, 40),
   };
 }
 
@@ -42,7 +44,8 @@ export async function PUT(request: Request) {
     if (!day) return Response.json({ error: "Некорректная дата" }, { status: 400 });
     const progress = cleanPayload(body.progress ?? {});
     const stars = Math.max(0, Math.min(10, Math.round(Number(body.stars) || 0)));
-    const tomorrowLimit = 100 + stars * 15;
+    const savingsTransfer = Math.min(Math.floor(stars * 15 / 10) * 10, Number(progress.savingsTransfer) || 0);
+    const tomorrowLimit = 100 + stars * 15 - savingsTransfer;
     await env.DB.prepare(`INSERT INTO daily_progress (day, payload, stars, tomorrow_limit, closed, updated_at)
       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(day) DO UPDATE SET payload = excluded.payload, stars = excluded.stars,
