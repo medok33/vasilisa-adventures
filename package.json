@@ -15,8 +15,10 @@
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
   },
   "dependencies": {
+    "@types/pdfmake": "^0.2.11",
     "drizzle-orm": "0.45.2",
     "next": "16.2.6",
+    "pdfmake": "^0.2.20",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
@@ -39,5 +41,5 @@
     "wrangler": "4.92.0"
   },
   "type": "module",
-  "displayName": "\u041f\u0440\u0438\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f \u0412\u0430\u0441\u0438\u043b\u0438\u0441\u044b"
+  "displayName": "Приключения Василисы"
 }

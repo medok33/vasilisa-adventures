@@ -30,7 +30,7 @@ function cleanPayload(input: ProgressPayload) {
     readingMinutes: Math.max(15, Math.min(30, Number(input.readingMinutes) || 15)), readingAnswer: textValue(input.readingAnswer, 500),
     mathAnswers: strings(input.mathAnswers, 5), englishAnswers: strings(input.englishAnswers, 6),
     kindnessChoice: textValue(input.kindnessChoice, 200), kindnessNote: textValue(input.kindnessNote, 400), independenceChoice: textValue(input.independenceChoice, 200),
-    mood: textValue(input.mood, 8), goodThing: textValue(input.goodThing, 500), hardThing: textValue(input.hardThing, 500), dadNote: textValue(input.dadNote, 600),
+    mood: textValue(input.mood, 8), goodThing: textValue(input.goodThing, 500), hardThing: textValue(input.hardThing, 500), dadNote: textValue(input.dadNote, 600), dadNotifiedText: textValue(input.dadNotifiedText, 600), dadNotifiedAt: textValue(input.dadNotifiedAt, 40),
     balance: money(input.balance), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), phone: textValue(input.phone, 16), reserveStar: Boolean(input.reserveStar), decision: textValue(input.decision, 12),
     savingsTransfer: Math.floor(money(input.savingsTransfer) / 10) * 10, savingsApplied: Boolean(input.savingsApplied),
     motherSignature: textValue(input.motherSignature, 200_000), signedAt: textValue(input.signedAt, 40),
@@ -74,7 +74,13 @@ function noStore(body: unknown, init: ResponseInit = {}) {
 
 export async function GET(request: Request) {
   try {
-    const day = validDay(new URL(request.url).searchParams.get("day"));
+    const search = new URL(request.url).searchParams;
+    if (search.get("history") === "1") {
+      const database = await readDatabase();
+      const days = Object.entries(database.days).sort(([left], [right]) => right.localeCompare(left)).slice(0, 60).map(([storedDay, value]) => ({ day: storedDay, progress: value.payload, stars: value.stars, tomorrowLimit: value.tomorrowLimit, closed: value.closed }));
+      return noStore({ days });
+    }
+    const day = validDay(search.get("day"));
     if (!day) return noStore({ error: "Некорректная дата" }, { status: 400 });
     const database = await readDatabase();
     const current = database.days[day];
@@ -88,6 +94,26 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("[progress:get] failed", error);
     return noStore({ error: "Не удалось загрузить день" }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json() as { day?: string; note?: string };
+    const day = validDay(body.day ?? null);
+    const note = textValue(body.note, 600).trim();
+    if (!day || !note) return noStore({ error: "Пустое сообщение" }, { status: 400 });
+    const token = process.env.VK_BOT_TOKEN;
+    const peerId = process.env.VK_DAD_PEER_ID;
+    if (!token || !peerId) return noStore({ accepted: true, delivered: false, channel: "not_configured" }, { status: 202 });
+    const params = new URLSearchParams({ access_token: token, v: "5.199", peer_id: peerId, random_id: String(Date.now()), message: `Василиса поделилась записью за ${day}:\n\n${note}` });
+    const response = await fetch("https://api.vk.com/method/messages.send", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: params });
+    const result = await response.json() as { error?: unknown };
+    if (!response.ok || result.error) throw new Error("vk");
+    return noStore({ delivered: true, channel: "vk" });
+  } catch (error) {
+    console.error("[progress:notify] failed", error);
+    return noStore({ error: "Не удалось отправить уведомление" }, { status: 502 });
   }
 }
 
