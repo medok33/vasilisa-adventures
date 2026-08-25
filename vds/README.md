@@ -2,6 +2,10 @@
 
 This package is intentionally isolated from the existing Weight App staging stack.
 
+Before deployment, read the repository root `AGENTS.md` and
+`docs/PROJECT_STATE.md`. Never deploy from an uncommitted or unknown source
+state.
+
 - Compose project: `vasilisa-adventures`
 - Application path on the server: `/opt/vasilisa-adventures`
 - Local application port: `127.0.0.1:3100`
