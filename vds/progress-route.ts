@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { cleanRanges, getBook, mergeRanges, type ReadingRange } from "../../app/books";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,11 +23,21 @@ function validDay(value: string | null) { return value && /^\d{4}-\d{2}-\d{2}$/.
 function strings(value: unknown, max: number) { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").map((item) => item.slice(0, 200)).slice(0, max) : []; }
 function textValue(value: unknown, max: number) { return typeof value === "string" ? value.slice(0, max) : ""; }
 function money(value: unknown) { return Math.max(0, Math.min(1_000_000, Math.round(Number(value) || 0))); }
+function readingFields(input: ProgressPayload) {
+  const book = getBook(input.readingBook);
+  return { readingBook: book.id, readingRanges: cleanRanges(input.readingRanges, book) };
+}
+function rangesFromPayloads(payloads: ProgressPayload[]) {
+  const first = payloads.find((payload) => typeof payload.readingBook === "string") ?? {};
+  const book = getBook(first.readingBook);
+  return { book, ranges: payloads.reduce<ReadingRange[]>((ranges, payload) => mergeRanges(ranges, cleanRanges(payload.readingRanges, book), book), []) };
+}
 
 function cleanPayload(input: ProgressPayload) {
   return {
     done: strings(input.done, 10), morningChecks: strings(input.morningChecks, 10), orderChecks: strings(input.orderChecks, 10),
     readingStart: textValue(input.readingStart, 4), readingEnd: textValue(input.readingEnd, 4),
+    ...readingFields(input),
     readingMinutes: Math.max(15, Math.min(30, Number(input.readingMinutes) || 15)), readingAnswer: textValue(input.readingAnswer, 500),
     mathAnswers: strings(input.mathAnswers, 5), englishAnswers: strings(input.englishAnswers, 6),
     kindnessChoice: textValue(input.kindnessChoice, 200), kindnessNote: textValue(input.kindnessNote, 400), independenceChoice: textValue(input.independenceChoice, 200),
@@ -88,7 +99,9 @@ export async function GET(request: Request) {
       .filter(([storedDay, value]) => storedDay < day && value.closed)
       .sort(([left], [right]) => right.localeCompare(left))[0]?.[1];
     const previousPayload = previous?.payload ?? {};
-    const inherited = { balance: money(previousPayload.balance), goalTitle: textValue(previousPayload.goalTitle, 80), goalAmount: money(previousPayload.goalAmount), phone: textValue(previousPayload.phone, 16) };
+    const readingRows = Object.entries(database.days).filter(([storedDay]) => storedDay < day).sort(([left], [right]) => left.localeCompare(right)).map(([, value]) => value.payload);
+    const reading = rangesFromPayloads(readingRows);
+    const inherited = { balance: money(previousPayload.balance), goalTitle: textValue(previousPayload.goalTitle, 80), goalAmount: money(previousPayload.goalAmount), phone: textValue(previousPayload.phone, 16), readingBook: reading.book.id, readingRanges: reading.ranges };
     if (!current) return noStore({ progress: { ...inherited, done: [] }, stars: 0, todayLimit: previous?.tomorrowLimit ?? 100, tomorrowLimit: 100, closed: false });
     return noStore({ progress: { ...inherited, ...current.payload }, stars: current.stars, todayLimit: previous?.tomorrowLimit ?? 100, tomorrowLimit: current.tomorrowLimit, closed: current.closed });
   } catch (error) {
@@ -123,6 +136,13 @@ export async function PUT(request: Request) {
     const day = validDay(body.day ?? null);
     if (!day) return noStore({ error: "Некорректная дата" }, { status: 400 });
     const payload = cleanPayload(body.progress ?? {});
+    const database = await readDatabase();
+    const readingRows = Object.entries(database.days).filter(([storedDay]) => storedDay < day).sort(([left], [right]) => left.localeCompare(right)).map(([, value]) => value.payload);
+    const historicReading = rangesFromPayloads(readingRows);
+    const book = getBook(payload.readingBook);
+    if (book.id !== historicReading.book.id && historicReading.ranges.length > 0) return noStore({ error: "Следующая книга откроется после завершения текущей." }, { status: 400 });
+    payload.readingBook = book.id;
+    payload.readingRanges = mergeRanges(historicReading.ranges, payload.readingRanges as ReadingRange[], book);
     const stars = Math.max(0, Math.min(10, Math.round(Number(body.stars) || 0)));
     const savingsTransfer = Math.min(Math.floor(stars * 15 / 10) * 10, Number(payload.savingsTransfer) || 0);
     const tomorrowLimit = 100 + stars * 15 - savingsTransfer;

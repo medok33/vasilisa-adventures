@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
+import { cleanRanges, continuousPage, getBook, mergeRanges, type BookId, type ReadingRange } from "./books";
 
 type MissionId = "morning" | "reading" | "math" | "english" | "order" | "kindness" | "independence";
 type View = "home" | "wallet" | "journal" | "parent" | MissionId;
@@ -16,6 +17,8 @@ type Progress = {
   readingEnd: string;
   readingMinutes: number;
   readingAnswer: string;
+  readingBook: BookId;
+  readingRanges: ReadingRange[];
   mathAnswers: string[];
   englishAnswers: string[];
   orderChecks: string[];
@@ -65,7 +68,7 @@ const missions: Mission[] = [
 ];
 
 const emptyProgress: Progress = {
-  done: [], morningChecks: [], readingStart: "", readingEnd: "", readingMinutes: 15, readingAnswer: "",
+  done: [], morningChecks: [], readingStart: "", readingEnd: "", readingMinutes: 15, readingAnswer: "", readingBook: "emerald", readingRanges: [],
   mathAnswers: ["", "", "", "", ""], englishAnswers: ["", "", "", "", "", ""], orderChecks: [],
   kindnessChoice: "", kindnessNote: "", independenceChoice: "", mood: "", goodThing: "", hardThing: "", dadNote: "", dadNotifiedText: "", dadNotifiedAt: "",
   balance: 0, goalTitle: "", goalAmount: 0, phone: DAD_PHONE, reserveStar: false, decision: "",
@@ -125,6 +128,9 @@ export default function Adventure() {
     const fixed = progress.done.reduce((sum, id) => sum + (id === "math" ? 2 : id === "reading" ? 0 : 1), 0);
     return Math.min(10, fixed + readingStars + (progress.reserveStar && fixed + readingStars === 9 ? 1 : 0));
   }, [progress.done, progress.reserveStar, readingStars]);
+  const readingBook = getBook(progress.readingBook);
+  const savedReadingRanges = cleanRanges(progress.readingRanges, readingBook);
+  const confirmedReadingPage = continuousPage(savedReadingRanges, readingBook);
   const rewardBudget = earnedStars * 15;
   const savingsTransfer = Math.min(Math.floor(rewardBudget / 10) * 10, progress.savingsTransfer);
   const tomorrowLimit = 100 + rewardBudget - savingsTransfer;
@@ -204,7 +210,13 @@ export default function Adventure() {
   }
   function complete(id: MissionId, message: string, stars = 1) {
     if (closed) return;
-    setProgress((current) => ({ ...current, done: current.done.includes(id) ? current.done : [...current.done, id] }));
+    setProgress((current) => {
+      const book = getBook(current.readingBook);
+      const readingRanges = id === "reading"
+        ? mergeRanges(current.readingRanges, [{ from: Number(current.readingStart), to: Number(current.readingEnd) }], book)
+        : current.readingRanges;
+      return { ...current, readingRanges, done: current.done.includes(id) ? current.done : [...current.done, id] };
+    });
     setCelebration({ id, text: message, stars });
     navigator.vibrate?.([35, 30, 75]);
     window.setTimeout(() => { setCelebration(null); goTo("home"); }, 2400);
@@ -232,7 +244,7 @@ export default function Adventure() {
 
   const mathAllCorrect = mathQuestions.every((question, index) => progress.mathAnswers[index]?.trim() === question.answer);
   const englishAllCorrect = englishQuestions.every((question, index) => progress.englishAnswers[index] === question.answer);
-  const readingReady = Boolean(progress.readingStart && progress.readingEnd && Number(progress.readingEnd) >= Number(progress.readingStart));
+  const readingReady = Boolean(progress.readingStart && progress.readingEnd && Number(progress.readingEnd) >= Number(progress.readingStart) && Number(progress.readingStart) >= confirmedReadingPage);
   const readingPotential = !readingReady ? 0 : progress.readingMinutes >= 25 && progress.readingAnswer.trim().length >= 8 ? 3 : progress.readingMinutes >= 20 ? 2 : 1;
 
   if (view !== "home" && view !== "wallet" && view !== "journal" && view !== "parent") {
@@ -248,9 +260,11 @@ export default function Adventure() {
             <ActionButton disabled={progress.morningChecks.length !== morningItems.length} onClick={() => complete("morning", "Утренний запуск завершён")}>Завершить утренний запуск</ActionButton>
           </>}
           {view === "reading" && <>
-            <Intro title="«Волшебник Изумрудного города»" text="Выбери уровень квеста. Чем внимательнее читаешь, тем больше звёзд можно открыть." />
+            <Intro title={readingBook.title} text="Отмечай только реальные страницы. Пропуски не засчитываются — к ним всегда можно вернуться позже." />
+            <div className="book-status"><span>Сейчас читаем</span><strong>Страницы {readingBook.firstPage}–{readingBook.lastPage}</strong><small>ISBN {readingBook.isbn}</small>{savedReadingRanges.length > 0 && <p>Прочитано подряд до страницы {confirmedReadingPage}.</p>}</div>
             <div className="reading-levels">{[{m:15,s:1,t:"Разминка"},{m:20,s:2,t:"Исследователь"},{m:30,s:3,t:"Книжный герой"}].map((level) => <button key={level.m} className={progress.readingMinutes === level.m ? "selected" : ""} onClick={() => patch({ readingMinutes: level.m })}><strong>{level.m} минут</strong><span>{level.t}</span><b>{level.s} ⭐</b></button>)}</div>
-            <div className="field-pair"><label><span>Начала со страницы</span><input inputMode="numeric" value={progress.readingStart} onChange={(e) => patch({ readingStart: e.target.value })} placeholder="например, 25" /></label><label><span>Закончила на странице</span><input inputMode="numeric" value={progress.readingEnd} onChange={(e) => patch({ readingEnd: e.target.value })} placeholder="например, 37" /></label></div>
+            <div className="field-pair"><label><span>Начала со страницы</span><input inputMode="numeric" min={Math.max(readingBook.firstPage, confirmedReadingPage)} max={readingBook.lastPage} value={progress.readingStart} onChange={(e) => patch({ readingStart: e.target.value })} placeholder={`не раньше ${Math.max(readingBook.firstPage, confirmedReadingPage)}`} /></label><label><span>Закончила на странице</span><input inputMode="numeric" min={readingBook.firstPage} max={readingBook.lastPage} value={progress.readingEnd} onChange={(e) => patch({ readingEnd: e.target.value })} placeholder={`до ${readingBook.lastPage}`} /></label></div>
+            {!readingReady && progress.readingStart && Number(progress.readingStart) < confirmedReadingPage && <p className="field-warning">Начни не раньше уже отмеченной страницы {confirmedReadingPage}.</p>}
             {progress.readingMinutes >= 25 && <label className="long-field"><span>Кого из героев ты взяла бы с собой в путешествие и почему?</span><textarea value={progress.readingAnswer} onChange={(e) => patch({ readingAnswer: e.target.value })} placeholder="Напиши 1–2 предложения своими словами" /></label>}
             <div className="live-result"><span>Сейчас открывается</span><strong>{readingPotential} из 3 ⭐</strong></div>
             <ActionButton disabled={!readingReady || (progress.readingMinutes >= 25 && progress.readingAnswer.trim().length < 8)} onClick={() => complete("reading", "Книжный портал открыт", readingPotential)}>Закрыть книжный квест</ActionButton>

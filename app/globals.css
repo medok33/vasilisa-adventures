@@ -150,6 +150,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .primary-action:active { transform: scale(.99); }
 .primary-action:disabled { color: #9d9da2; background: #e9e9ed; box-shadow: none; cursor: not-allowed; }
 .reading-levels { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; margin: 20px 0; }
+.book-status { margin: 14px 0 4px; padding: 14px 16px; border-radius: 16px; background: #f0fbf7; border: 1px solid #ccefe2; display: grid; gap: 3px; }
+.book-status span,.book-status small { color: var(--muted); font-size: 11px; }
+.book-status strong { color: #165d4a; font-size: 15px; }
+.book-status p { margin: 5px 0 0; color: #377364; font-size: 12px; }
+.field-warning { margin: 9px 0 0; color: #a85c14; font-size: 12px; }
 .reading-levels button { display: flex; flex-direction: column; gap: 4px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: #fff; text-align: left; cursor: pointer; }
 .reading-levels button.selected { border-color: transparent; background: var(--soft); box-shadow: inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent); }
 .reading-levels strong { font-size: 17px; letter-spacing: -.02em; }
