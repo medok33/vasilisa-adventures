@@ -6,14 +6,29 @@ function validDay(value: string | null) { return value && /^\d{4}-\d{2}-\d{2}$/.
 function strings(value: unknown, max: number) { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").map((item) => item.slice(0, 200)).slice(0, max) : []; }
 function textValue(value: unknown, max: number) { return typeof value === "string" ? value.slice(0, max) : ""; }
 function money(value: unknown) { return Math.max(0, Math.min(1_000_000, Math.round(Number(value) || 0))); }
+const bookLimits = { emerald: [5, 288], urfin: [5, 248], pippi: [5, 125] } as const;
+function cleanBookProgress(value: unknown) {
+  const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  return Object.fromEntries(Object.entries(bookLimits).map(([id, limits]) => {
+    const ranges = Array.isArray(source[id]) ? source[id] as Array<Record<string, unknown>> : [];
+    return [id, ranges.map((range) => ({ from: Math.max(limits[0], Math.round(Number(range.from))), to: Math.min(limits[1], Math.round(Number(range.to))) })).filter((range) => Number.isFinite(range.from) && Number.isFinite(range.to) && range.from <= range.to).slice(0, 100)];
+  }));
+}
+function textRecord(value: unknown) { return value && typeof value === "object" ? Object.fromEntries(Object.entries(value as Record<string, unknown>).slice(0, 100).map(([key, item]) => [key.slice(0, 40), textValue(item, 800)])) : {}; }
+function inheritedReading(payload: ProgressPayload) {
+  const bookProgress = cleanBookProgress(payload.bookProgress);
+  const legacyFrom = Number(payload.readingStart); const legacyTo = Number(payload.readingEnd);
+  if (!bookProgress.emerald.length && Number.isFinite(legacyFrom) && Number.isFinite(legacyTo) && legacyFrom <= legacyTo) bookProgress.emerald = [{ from: 5, to: Math.min(288, legacyTo) }];
+  return { readingBook: ["emerald", "urfin", "pippi"].includes(String(payload.readingBook)) ? payload.readingBook : "emerald", bookProgress, readingQuestionAnswers: textRecord(payload.readingQuestionAnswers) };
+}
 
 function cleanPayload(input: ProgressPayload) {
   return {
     done: strings(input.done, 10), morningChecks: strings(input.morningChecks, 10), orderChecks: strings(input.orderChecks, 10),
     readingStart: textValue(input.readingStart, 4), readingEnd: textValue(input.readingEnd, 4),
-    readingMinutes: Math.max(15, Math.min(30, Number(input.readingMinutes) || 15)), readingAnswer: textValue(input.readingAnswer, 500),
-    mathAnswers: strings(input.mathAnswers, 5), englishAnswers: strings(input.englishAnswers, 6),
-    kindnessChoice: textValue(input.kindnessChoice, 200), kindnessNote: textValue(input.kindnessNote, 400), independenceChoice: textValue(input.independenceChoice, 200),
+    readingMinutes: Math.max(15, Math.min(30, Number(input.readingMinutes) || 15)), readingAnswer: textValue(input.readingAnswer, 500), ...inheritedReading(input),
+    mathAnswers: strings(input.mathAnswers, 5), mathAttempts: Math.max(0, Math.min(99, Math.round(Number(input.mathAttempts) || 0))), englishAnswers: strings(input.englishAnswers, 6), englishAttempts: Math.max(0, Math.min(99, Math.round(Number(input.englishAttempts) || 0))),
+    kindnessChoice: textValue(input.kindnessChoice, 200), kindnessNote: textValue(input.kindnessNote, 400), independenceChoice: textValue(input.independenceChoice, 200), independenceNote: textValue(input.independenceNote, 400),
     mood: textValue(input.mood, 8), goodThing: textValue(input.goodThing, 500), hardThing: textValue(input.hardThing, 500), dadNote: textValue(input.dadNote, 600), dadNotifiedText: textValue(input.dadNotifiedText, 600), dadNotifiedAt: textValue(input.dadNotifiedAt, 40),
     balance: money(input.balance), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), phone: textValue(input.phone, 16), reserveStar: Boolean(input.reserveStar), decision: textValue(input.decision, 12),
     savingsTransfer: Math.floor(money(input.savingsTransfer) / 10) * 10, savingsApplied: Boolean(input.savingsApplied),
@@ -32,8 +47,9 @@ export async function GET(request: Request) {
     if (!day) return Response.json({ error: "Некорректная дата" }, { status: 400 });
     const current = await env.DB.prepare("SELECT payload, stars, tomorrow_limit, closed FROM daily_progress WHERE day = ?").bind(day).first<{ payload: string; stars: number; tomorrow_limit: number; closed: number }>();
     const previous = await env.DB.prepare("SELECT payload, tomorrow_limit FROM daily_progress WHERE day < ? AND closed = 1 ORDER BY day DESC LIMIT 1").bind(day).first<{ payload: string; tomorrow_limit: number }>();
+    const latest = await env.DB.prepare("SELECT payload FROM daily_progress WHERE day < ? ORDER BY day DESC LIMIT 1").bind(day).first<{ payload: string }>();
     const previousPayload = previous ? JSON.parse(previous.payload) as ProgressPayload : {};
-    const inherited = { balance: money(previousPayload.balance), goalTitle: textValue(previousPayload.goalTitle, 80), goalAmount: money(previousPayload.goalAmount), phone: textValue(previousPayload.phone, 16) };
+    const inherited = { balance: money(previousPayload.balance), goalTitle: textValue(previousPayload.goalTitle, 80), goalAmount: money(previousPayload.goalAmount), phone: textValue(previousPayload.phone, 16), ...inheritedReading(latest ? JSON.parse(latest.payload) as ProgressPayload : previousPayload) };
     if (!current) return Response.json({ progress: { ...inherited, done: [] }, stars: 0, todayLimit: previous?.tomorrow_limit ?? 100, tomorrowLimit: 100, closed: false });
     return Response.json({ progress: { ...inherited, ...JSON.parse(current.payload) }, stars: current.stars, todayLimit: previous?.tomorrow_limit ?? 100, tomorrowLimit: current.tomorrow_limit, closed: Boolean(current.closed) });
   } catch (error) {

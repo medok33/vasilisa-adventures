@@ -22,14 +22,29 @@ function validDay(value: string | null) { return value && /^\d{4}-\d{2}-\d{2}$/.
 function strings(value: unknown, max: number) { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").map((item) => item.slice(0, 200)).slice(0, max) : []; }
 function textValue(value: unknown, max: number) { return typeof value === "string" ? value.slice(0, max) : ""; }
 function money(value: unknown) { return Math.max(0, Math.min(1_000_000, Math.round(Number(value) || 0))); }
+const bookLimits = { emerald: [5, 288], urfin: [5, 248], pippi: [5, 125] } as const;
+function cleanBookProgress(value: unknown) {
+  const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  return Object.fromEntries(Object.entries(bookLimits).map(([id, limits]) => {
+    const ranges = Array.isArray(source[id]) ? source[id] as Array<Record<string, unknown>> : [];
+    return [id, ranges.map((range) => ({ from: Math.max(limits[0], Math.round(Number(range.from))), to: Math.min(limits[1], Math.round(Number(range.to))) })).filter((range) => Number.isFinite(range.from) && Number.isFinite(range.to) && range.from <= range.to).slice(0, 100)];
+  }));
+}
+function textRecord(value: unknown) { return value && typeof value === "object" ? Object.fromEntries(Object.entries(value as Record<string, unknown>).slice(0, 100).map(([key, item]) => [key.slice(0, 40), textValue(item, 800)])) : {}; }
+function inheritedReading(payload: ProgressPayload) {
+  const bookProgress = cleanBookProgress(payload.bookProgress);
+  const legacyFrom = Number(payload.readingStart); const legacyTo = Number(payload.readingEnd);
+  if (!bookProgress.emerald.length && Number.isFinite(legacyFrom) && Number.isFinite(legacyTo) && legacyFrom <= legacyTo) bookProgress.emerald = [{ from: 5, to: Math.min(288, legacyTo) }];
+  return { readingBook: ["emerald", "urfin", "pippi"].includes(String(payload.readingBook)) ? payload.readingBook : "emerald", bookProgress, readingQuestionAnswers: textRecord(payload.readingQuestionAnswers) };
+}
 
 function cleanPayload(input: ProgressPayload) {
   return {
     done: strings(input.done, 10), morningChecks: strings(input.morningChecks, 10), orderChecks: strings(input.orderChecks, 10),
     readingStart: textValue(input.readingStart, 4), readingEnd: textValue(input.readingEnd, 4),
     readingMinutes: Math.max(15, Math.min(30, Number(input.readingMinutes) || 15)), readingAnswer: textValue(input.readingAnswer, 500),
-    mathAnswers: strings(input.mathAnswers, 5), englishAnswers: strings(input.englishAnswers, 6),
-    kindnessChoice: textValue(input.kindnessChoice, 200), kindnessNote: textValue(input.kindnessNote, 400), independenceChoice: textValue(input.independenceChoice, 200),
+    ...inheritedReading(input), mathAnswers: strings(input.mathAnswers, 5), mathAttempts: Math.max(0, Math.min(99, Math.round(Number(input.mathAttempts) || 0))), englishAnswers: strings(input.englishAnswers, 6), englishAttempts: Math.max(0, Math.min(99, Math.round(Number(input.englishAttempts) || 0))),
+    kindnessChoice: textValue(input.kindnessChoice, 200), kindnessNote: textValue(input.kindnessNote, 400), independenceChoice: textValue(input.independenceChoice, 200), independenceNote: textValue(input.independenceNote, 400),
     mood: textValue(input.mood, 8), goodThing: textValue(input.goodThing, 500), hardThing: textValue(input.hardThing, 500), dadNote: textValue(input.dadNote, 600), dadNotifiedText: textValue(input.dadNotifiedText, 600), dadNotifiedAt: textValue(input.dadNotifiedAt, 40),
     balance: money(input.balance), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), phone: textValue(input.phone, 16), reserveStar: Boolean(input.reserveStar), decision: textValue(input.decision, 12),
     savingsTransfer: Math.floor(money(input.savingsTransfer) / 10) * 10, savingsApplied: Boolean(input.savingsApplied),
@@ -88,7 +103,8 @@ export async function GET(request: Request) {
       .filter(([storedDay, value]) => storedDay < day && value.closed)
       .sort(([left], [right]) => right.localeCompare(left))[0]?.[1];
     const previousPayload = previous?.payload ?? {};
-    const inherited = { balance: money(previousPayload.balance), goalTitle: textValue(previousPayload.goalTitle, 80), goalAmount: money(previousPayload.goalAmount), phone: textValue(previousPayload.phone, 16) };
+    const latestPayload = Object.entries(database.days).filter(([storedDay]) => storedDay < day).sort(([left], [right]) => right.localeCompare(left))[0]?.[1].payload ?? previousPayload;
+    const inherited = { balance: money(previousPayload.balance), goalTitle: textValue(previousPayload.goalTitle, 80), goalAmount: money(previousPayload.goalAmount), phone: textValue(previousPayload.phone, 16), ...inheritedReading(latestPayload) };
     if (!current) return noStore({ progress: { ...inherited, done: [] }, stars: 0, todayLimit: previous?.tomorrowLimit ?? 100, tomorrowLimit: 100, closed: false });
     return noStore({ progress: { ...inherited, ...current.payload }, stars: current.stars, todayLimit: previous?.tomorrowLimit ?? 100, tomorrowLimit: current.tomorrowLimit, closed: current.closed });
   } catch (error) {
