@@ -460,16 +460,15 @@ function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, s
   </main>;
 }
 
-async function downloadDayPdf({ day, progress, stars, tomorrowLimit, rewardBudget }: { day: string; progress: Progress; stars: number; tomorrowLimit: number; rewardBudget: number }) {
-  const pdfMake = (await import("pdfmake/build/pdfmake")).default;
-  const fonts = (await import("pdfmake/build/vfs_fonts")).default as unknown as Record<string, string>;
+export function buildDayPdfDefinition({ day, progress, stars, tomorrowLimit, rewardBudget }: { day: string; progress: Progress; stars: number; tomorrowLimit: number; rewardBudget: number }) {
   const reportContent = dailyContent(day);
   const mathQuestions = reportContent.math;
   const englishQuestions = reportContent.english;
   const orderItems = reportContent.order.map((label, index) => [`daily-${index}`, label]);
-  pdfMake.vfs = fonts;
   const selectedLabels = (items: string[][], selected: string[]) => items.filter(([id]) => selected.includes(id)).map(([, label]) => label).join("; ") || "Нет отметок";
   const answerLine = (questions: { label: string }[], answers: string[]) => questions.map((question, index) => `${index + 1}. ${question.label}: ${answers[index] || "нет ответа"}`).join("\n");
+  const missionColors = ["#FFD66B", "#72D6BE", "#7BB8FF", "#FF9A9E", "#FFC56E", "#F58BB0", "#AF91FF"];
+  const missionKinds = ["СТАРТ", "КНИГА", "ШИФР", "ENGLISH", "ПОРЯДОК", "ДОБРО", "САМА"];
   const missionDetails: Record<MissionId, string> = {
     morning: selectedLabels(morningItems, progress.morningChecks),
     reading: `Чтение ${progress.readingMinutes} минут. Страницы ${progress.readingStart || "-"}-${progress.readingEnd || "-"}.${progress.readingAnswer ? ` Ответ: ${progress.readingAnswer}` : ""}`,
@@ -480,53 +479,78 @@ async function downloadDayPdf({ day, progress, stars, tomorrowLimit, rewardBudge
     independence: progress.independenceChoice || "Не выбрано",
   };
   const missionContent: Content[] = missions.map((mission, index) => ({
-    margin: [0, 0, 0, 10],
+    margin: [0, 0, 0, 8],
     table: {
-      widths: [28, "*", 68],
+      widths: [54, "*", 72],
+      dontBreakRows: true,
       body: [[
-        { text: String(index + 1).padStart(2, "0"), style: "step" },
-        { stack: [{ text: mission.title, style: "missionTitle" }, { text: missionDetails[mission.id], style: "detail" }] },
-        { text: progress.done.includes(mission.id) ? "Выполнено" : "Не выполнено", style: progress.done.includes(mission.id) ? "done" : "missed", alignment: "right" },
+        { stack: [{ text: String(index + 1).padStart(2, "0"), style: "step" }, { text: missionKinds[index], style: "missionKind" }], fillColor: missionColors[index] },
+        { stack: [{ text: mission.title, style: "missionTitle" }, { text: missionDetails[mission.id], style: "detail" }], fillColor: progress.done.includes(mission.id) ? "#F1FFF8" : "#FFF9F4" },
+        { text: progress.done.includes(mission.id) ? "ГОТОВО" : "ЕЩЁ ВПЕРЕДИ", style: progress.done.includes(mission.id) ? "done" : "missed", alignment: "center", fillColor: progress.done.includes(mission.id) ? "#F1FFF8" : "#FFF9F4" },
       ]],
     },
-    layout: { fillColor: () => progress.done.includes(mission.id) ? "#F0FAF4" : "#F7F7F8", hLineColor: () => "#E4E7EB", vLineColor: () => "#E4E7EB", paddingLeft: () => 10, paddingRight: () => 10, paddingTop: () => 9, paddingBottom: () => 9 },
+    layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 11, paddingRight: () => 11, paddingTop: () => 10, paddingBottom: () => 10 },
   }));
   const checkedAt = progress.signedAt ? new Date(progress.signedAt).toLocaleString("ru-RU", { timeZone: APP_TIME_ZONE, dateStyle: "long", timeStyle: "short" }) : dayLabel(day);
+  const signatureDate = progress.signedAt ? new Date(progress.signedAt).toLocaleDateString("ru-RU", { timeZone: APP_TIME_ZONE }) : new Date(`${day}T12:00:00`).toLocaleDateString("ru-RU");
+  const progressDots = Array.from({ length: 10 }, (_, index) => ({ type: "ellipse" as const, x: 4 + index * 11, y: 5, r1: 3.2, r2: 3.2, color: index < stars ? "#FFB82E" : "#D9DCE7" }));
   const definition: TDocumentDefinitions = {
-    pageSize: "A4", pageMargins: [42, 42, 42, 48],
+    pageSize: "A4", pageMargins: [38, 38, 38, 122],
     info: { title: `Отчёт Василисы за ${day}` },
+    background: (currentPage) => ({ canvas: [
+      { type: "rect", x: 0, y: 0, w: 595, h: 842, color: "#FFFDF8" },
+      { type: "ellipse", x: 548, y: 54, r1: 88, r2: 88, color: currentPage === 1 ? "#E8E2FF" : "#EAF8FF" },
+      { type: "ellipse", x: 38, y: 795, r1: 72, r2: 72, color: "#FFF0D2" },
+    ] }),
     content: [
-      { text: "ПРИКЛЮЧЕНИЯ ВАСИЛИСЫ", style: "eyebrow" },
-      { text: "Отчёт о дне", style: "title" },
-      { text: dayLabel(day), style: "date" },
-      { columns: [
-        { stack: [{ text: "Итог дня", style: "statLabel" }, { text: `${stars} из 10 звёзд`, style: "statValue" }] },
-        { stack: [{ text: "Награда", style: "statLabel" }, { text: `${rewardBudget} ₽`, style: "statValue" }] },
-        { stack: [{ text: "Лимит завтра", style: "statLabel" }, { text: `${tomorrowLimit} ₽`, style: "statValue" }] },
-      ], columnGap: 12, margin: [0, 20, 0, 24] },
-      { text: "Миссии и действия по порядку", style: "sectionTitle" },
+      { table: { widths: ["*", 72], body: [
+        [{ text: "ПРИКЛЮЧЕНИЯ ВАСИЛИСЫ", style: "eyebrow", fillColor: "#6757D9" }, { text: "", fillColor: "#5546C7" }],
+        [{ text: "Дневник приключений", style: "title", fillColor: "#6757D9" }, { text: `${stars}/10`, style: "heroScore", alignment: "center", fillColor: "#5546C7", rowSpan: 2, margin: [0, 7, 0, 0] }],
+        [{ text: "Карта пройденного маршрута", style: "heroSubtitle", fillColor: "#6757D9" }, {}],
+        [{ text: dayLabel(day), style: "date", fillColor: "#6757D9" }, { text: "звёзд", style: "heroCaption", alignment: "center", fillColor: "#5546C7" }],
+      ] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 18, paddingRight: () => 18, paddingTop: () => 6, paddingBottom: () => 6 }, margin: [0, 0, 0, 12] },
+      { table: { widths: ["*", "*", "*"], body: [[
+        { stack: [{ text: "ЗВЁЗДНЫЙ РЕЗУЛЬТАТ", style: "statLabel" }, { canvas: progressDots, margin: [0, 6, 0, 6] }, { text: `${stars} из 10`, style: "statSmall" }], fillColor: "#FFF4CF" },
+        { stack: [{ text: "НАГРАДА", style: "statLabel" }, { text: `${rewardBudget} ₽`, style: "statValue" }, { text: "за сегодняшний маршрут", style: "statSmall" }], fillColor: "#E9FFF6" },
+        { stack: [{ text: "ЗАВТРА ОТКРОЕТСЯ", style: "statLabel" }, { text: `${tomorrowLimit} ₽`, style: "statValue" }, { text: "новый дневной лимит", style: "statSmall" }], fillColor: "#EAF3FF" },
+      ]] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 12, paddingRight: () => 12, paddingTop: () => 11, paddingBottom: () => 11 }, margin: [0, 0, 0, 18] },
+      { columns: [{ text: "Маршрут дня", style: "sectionTitle" }, { text: "Каждый шаг — часть большого приключения", style: "sectionHint", alignment: "right" }], margin: [0, 0, 0, 10] },
       ...missionContent,
-      { text: "Мой день", style: "sectionTitle", margin: [0, 16, 0, 10] },
+      { text: "Мой волшебный день", style: "sectionTitle", margin: [0, 16, 0, 10] },
       { table: { widths: [125, "*"], body: [
-        [{ text: "Настроение", style: "rowLabel" }, moods.find((m) => m.id === progress.mood)?.label || "Не выбрано"],
-        [{ text: "Что получилось", style: "rowLabel" }, progress.goodThing || "Нет записи"],
-        [{ text: "Что было сложно", style: "rowLabel" }, progress.hardThing || "Нет записи"],
-        [{ text: "Сообщение папе", style: "rowLabel" }, progress.dadNote || "Нет записи"],
-      ] }, layout: { hLineColor: () => "#E4E7EB", vLineColor: () => "#E4E7EB", paddingLeft: () => 9, paddingRight: () => 9, paddingTop: () => 8, paddingBottom: () => 8 } },
-      { text: "Подтверждение мамы", style: "sectionTitle", margin: [0, 24, 0, 8] },
-      { text: `День проверен: ${checkedAt}`, style: "detail" },
-      ...(progress.motherSignature ? [{ image: progress.motherSignature, width: 180, height: 70, fit: [180, 70], margin: [0, 12, 0, 4] } as Content] : []),
-      { text: "Подпись мамы", style: "signatureLabel" },
+        [{ text: "НАСТРОЕНИЕ", style: "rowLabel", fillColor: "#F1ECFF" }, { text: moods.find((m) => m.id === progress.mood)?.label || "Не выбрано", fillColor: "#FBF9FF" }],
+        [{ text: "МОЯ ПОБЕДА", style: "rowLabel", fillColor: "#E9FFF6" }, { text: progress.goodThing || "Нет записи", fillColor: "#F8FFFC" }],
+        [{ text: "БЫЛО НЕПРОСТО", style: "rowLabel", fillColor: "#FFF3E2" }, { text: progress.hardThing || "Нет записи", fillColor: "#FFFCF7" }],
+        [{ text: "ПАПЕ", style: "rowLabel", fillColor: "#EAF3FF" }, { text: progress.dadNote || "Нет записи", fillColor: "#F8FBFF" }],
+      ] }, layout: { hLineWidth: () => 3, vLineWidth: () => 3, hLineColor: () => "#FFFDF8", vLineColor: () => "#FFFDF8", paddingLeft: () => 11, paddingRight: () => 11, paddingTop: () => 10, paddingBottom: () => 10 } },
+      { table: { widths: [42, "*"], body: [[{ text: "OK", style: "finishStar", alignment: "center", fillColor: "#FFD66B" }, { stack: [{ text: "Маршрут сохранён!", style: "finishTitle" }, { text: `Мама проверила день: ${checkedAt}`, style: "detail" }], fillColor: "#FFF4CF" }]] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 12, paddingRight: () => 12, paddingTop: () => 11, paddingBottom: () => 11 }, margin: [0, 16, 0, 0] },
     ],
-    footer: (currentPage, pageCount) => ({ text: `Приключения Василисы  •  ${currentPage} / ${pageCount}`, alignment: "center", color: "#8A8F98", fontSize: 8, margin: [0, 16, 0, 0] }),
+    footer: (currentPage, pageCount) => currentPage === pageCount ? ({
+      columns: [
+        { stack: [{ text: "ПРИКЛЮЧЕНИЯ ПРОДОЛЖАЮТСЯ…", color: "#6757D9", bold: true, fontSize: 8 }, { text: `${currentPage} / ${pageCount}`, color: "#9A93B5", fontSize: 8, margin: [0, 5, 0, 0] }], margin: [38, 34, 0, 0] },
+        { width: 218, stack: [
+          { text: `Дата:  ${signatureDate}`, style: "signatureDate", alignment: "right" },
+          ...(progress.motherSignature ? [{ image: progress.motherSignature, width: 150, height: 48, fit: [150, 48], alignment: "right", margin: [0, 4, 0, 0] } as Content] : [{ text: "", margin: [0, 30, 0, 0] } as Content]),
+          { canvas: [{ type: "line", x1: 55, y1: 0, x2: 218, y2: 0, lineWidth: 1, lineColor: "#8178A6" }] },
+          { text: "Подпись мамы", style: "signatureLabel", alignment: "right" },
+        ], margin: [0, 2, 38, 0] },
+      ],
+    }) : ({ text: `Приключения Василисы  •  ${currentPage} / ${pageCount}`, alignment: "center", color: "#9A93B5", fontSize: 8, margin: [0, 40, 0, 0] }),
     defaultStyle: { font: "Roboto", fontSize: 10, color: "#1D2430", lineHeight: 1.25 },
     styles: {
-      eyebrow: { fontSize: 9, bold: true, color: "#2475D9", characterSpacing: 1.4 }, title: { fontSize: 28, bold: true, margin: [0, 6, 0, 2] }, date: { fontSize: 12, color: "#687080" },
-      statLabel: { fontSize: 8, color: "#737A85" }, statValue: { fontSize: 16, bold: true, margin: [0, 4, 0, 0] }, sectionTitle: { fontSize: 16, bold: true, color: "#17283A", margin: [0, 0, 0, 12] },
-      step: { bold: true, color: "#2475D9" }, missionTitle: { bold: true, fontSize: 11, margin: [0, 0, 0, 4] }, detail: { fontSize: 9, color: "#626A76" }, done: { fontSize: 8, bold: true, color: "#23834A" }, missed: { fontSize: 8, bold: true, color: "#9A5A3A" }, rowLabel: { bold: true, color: "#47505E" }, signatureLabel: { fontSize: 8, color: "#737A85", margin: [0, 2, 0, 0] },
+      eyebrow: { fontSize: 8, bold: true, color: "#DCD7FF", characterSpacing: 1.4 }, title: { fontSize: 25, bold: true, color: "#FFFFFF" }, heroSubtitle: { fontSize: 10, color: "#EDEAFF" }, date: { fontSize: 11, bold: true, color: "#FFFFFF" }, heroScore: { fontSize: 17, bold: true, color: "#FFFFFF" }, heroCaption: { fontSize: 8, color: "#DCD7FF" },
+      statLabel: { fontSize: 7, bold: true, color: "#756F87", characterSpacing: .5 }, statValue: { fontSize: 17, bold: true, color: "#272238", margin: [0, 5, 0, 2] }, statSmall: { fontSize: 7, color: "#857F91", margin: [0, 3, 0, 0] }, stars: { fontSize: 10, margin: [0, 5, 0, 0] }, sectionTitle: { fontSize: 16, bold: true, color: "#352B63" }, sectionHint: { fontSize: 8, color: "#827B98", margin: [0, 5, 0, 0] },
+      step: { bold: true, fontSize: 15, color: "#332C45" }, missionKind: { bold: true, fontSize: 6, color: "#5F566E", margin: [0, 3, 0, 0] }, missionTitle: { bold: true, fontSize: 11, color: "#332C45", margin: [0, 0, 0, 4] }, detail: { fontSize: 8.5, color: "#666072" }, done: { fontSize: 7, bold: true, color: "#23834A", margin: [0, 6, 0, 0] }, missed: { fontSize: 7, bold: true, color: "#A65C3A", margin: [0, 6, 0, 0] }, rowLabel: { bold: true, fontSize: 8, color: "#514A64" }, finishStar: { fontSize: 23, bold: true, color: "#5647C6" }, finishTitle: { fontSize: 12, bold: true, color: "#5647C6", margin: [0, 0, 0, 3] }, signatureDate: { fontSize: 9, bold: true, color: "#514A64" }, signatureLabel: { fontSize: 8, color: "#8178A6", margin: [0, 3, 0, 0] },
     },
   };
-  pdfMake.createPdf(definition).download(`vasilisa-${day}.pdf`);
+  return definition;
+}
+
+async function downloadDayPdf(args: { day: string; progress: Progress; stars: number; tomorrowLimit: number; rewardBudget: number }) {
+  const pdfMake = (await import("pdfmake/build/pdfmake")).default;
+  const fonts = (await import("pdfmake/build/vfs_fonts")).default as unknown as Record<string, string>;
+  pdfMake.vfs = fonts;
+  pdfMake.createPdf(buildDayPdfDefinition(args)).download(`vasilisa-${args.day}.pdf`);
 }
 
 function SignatureModal({ initial, onCancel, onSave }: { initial: string; onCancel: () => void; onSave: (value: string) => void }) {
