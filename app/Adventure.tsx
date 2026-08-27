@@ -5,6 +5,7 @@ import { flushSync } from "react-dom";
 import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
 import { activeQuestion, BOOKS, cleanRanges, continuousPage, getBook, isBookFinished, mergeRanges, nextBook, type BookId, type BookProgress } from "./books";
 import { dailyContent } from "./daily-content";
+import { emptyLearningHistory, recordLearningAttempt, type LearningHistory, type LearningSubject } from "./learning-history";
 
 type MissionId = "morning" | "reading" | "math" | "english" | "order" | "kindness" | "independence";
 type View = "home" | "wallet" | "journal" | "parent" | MissionId;
@@ -25,6 +26,7 @@ type Progress = {
   mathAttempts: number;
   englishAnswers: string[];
   englishAttempts: number;
+  learningHistory: LearningHistory;
   orderChecks: string[];
   kindnessChoice: string;
   kindnessNote: string;
@@ -74,7 +76,7 @@ const missions: Mission[] = [
 
 const emptyProgress: Progress = {
   done: [], morningChecks: [], readingStart: "", readingEnd: "", readingMinutes: 15, readingAnswer: "", readingBook: "emerald", bookProgress: {}, readingQuestionAnswers: {},
-  mathAnswers: ["", "", "", "", ""], mathAttempts: 0, englishAnswers: ["", "", "", "", "", "", ""], englishAttempts: 0, orderChecks: [],
+  mathAnswers: ["", "", "", "", ""], mathAttempts: 0, englishAnswers: ["", "", "", "", "", ""], englishAttempts: 0, learningHistory: emptyLearningHistory(), orderChecks: [],
   kindnessChoice: "", kindnessNote: "", independenceChoice: "", independenceNote: "", mood: "", goodThing: "", hardThing: "", dadNote: "", dadNotifiedText: "", dadNotifiedAt: "",
   balance: 0, goalTitle: "", goalAmount: 0, phone: DAD_PHONE, reserveStar: false, decision: "",
   savingsTransfer: 0, savingsApplied: false, motherSignature: "", signedAt: "",
@@ -133,7 +135,7 @@ export default function Adventure() {
       if (!response.ok) throw new Error("load");
       const data = await response.json() as { progress?: Partial<Progress>; closed?: boolean; todayLimit?: number };
       const loadedProgress = { ...emptyProgress, ...(data.progress ?? {}), phone: data.progress?.phone || DAD_PHONE, done: (data.progress?.done ?? []) as MissionId[] };
-      setProgress({ ...loadedProgress, bookProgress: loadedProgress.bookProgress ?? {}, readingQuestionAnswers: loadedProgress.readingQuestionAnswers ?? {} });
+      setProgress({ ...loadedProgress, bookProgress: loadedProgress.bookProgress ?? {}, readingQuestionAnswers: loadedProgress.readingQuestionAnswers ?? {}, learningHistory: loadedProgress.learningHistory ?? emptyLearningHistory() });
       setClosed(Boolean(data.closed)); setTodayLimit(Number(data.todayLimit) || 100); setSaveState("saved"); setLoaded(true);
     }).catch(() => { setLoaded(true); setSaveState("offline"); });
   }, [day]);
@@ -201,6 +203,24 @@ export default function Adventure() {
     if (closed) return;
     setProgress((current) => { const next = [...current[field]]; next[index] = value; return { ...current, [field]: next }; });
   }
+  function checkLearning(subject: LearningSubject) {
+    if (closed || progress.done.includes(subject)) return;
+    const questions = subject === "math" ? mathQuestions : englishQuestions;
+    const answers = subject === "math" ? progress.mathAnswers : progress.englishAnswers;
+    const allCorrect = questions.every((question, index) => answers[index]?.trim() === question.answer);
+    const checkedAt = new Date().toISOString();
+    setProgress((current) => ({
+      ...current,
+      [subject === "math" ? "mathAttempts" : "englishAttempts"]: current[subject === "math" ? "mathAttempts" : "englishAttempts"] + 1,
+      learningHistory: recordLearningAttempt(current.learningHistory, subject, questions, subject === "math" ? current.mathAnswers : current.englishAnswers, checkedAt),
+      done: allCorrect && !current.done.includes(subject) ? [...current.done, subject] : current.done,
+    }));
+    if (subject === "math") setMathChecked(true); else setEnglishChecked(true);
+    if (!allCorrect) return;
+    setCelebration({ id: subject, text: subject === "math" ? "Шифр экспедиции разгадан" : "English-разведка завершена", stars: subject === "math" ? 2 : 1 });
+    navigator.vibrate?.([35, 30, 75]);
+    window.setTimeout(() => { setCelebration(null); goTo("home"); }, 2400);
+  }
   function complete(id: MissionId, message: string, stars = 1) {
     if (closed) return;
     setProgress((current) => {
@@ -266,13 +286,13 @@ export default function Adventure() {
             <Intro title="Введи код экспедиции" text="Реши пять заданий. Ошибка ничего не отнимает — можно исправлять сколько нужно." />
             <div className="math-list">{mathQuestions.map((question, index) => { const value = progress.mathAnswers[index] ?? ""; const ok = value.trim() === question.answer; return <label className={mathChecked ? ok ? "correct" : "wrong" : ""} key={question.label}><span><small>Задание {index + 1}</small>{question.label}</span><input inputMode="numeric" value={value} onChange={(e) => { setMathChecked(false); setAnswer("mathAnswers", index, e.target.value); }} placeholder="Ответ" />{mathChecked && <b>{ok ? "Верно" : "Проверь"}</b>}</label>; })}</div>
             {mathChecked && !mathAllCorrect && <Feedback>Не всё сошлось. Исправь отмеченные ответы — попытки не ограничены.</Feedback>}
-            <ActionButton disabled={progress.mathAnswers.some((item) => !item)} onClick={() => { setMathChecked(true); patch({ mathAttempts: progress.mathAttempts + 1 }); if (mathAllCorrect) complete("math", "Шифр экспедиции разгадан", 2); }}>{mathChecked && mathAllCorrect ? "Шифр открыт!" : "Проверить ответы"}</ActionButton>
+            <ActionButton disabled={progress.mathAnswers.some((item) => !item) || progress.done.includes("math")} onClick={() => checkLearning("math")}>{mathChecked && mathAllCorrect ? "Шифр открыт!" : "Проверить ответы"}</ActionButton>
           </>}
           {view === "english" && <>
             <Intro title="Собери словарь разведчика" text="Нажми на правильное английское слово. В последнем задании выбери перевод фразы." />
             <div className="english-list">{englishQuestions.map((question, index) => { const chosen = progress.englishAnswers[index]; const ok = chosen === question.answer; return <article className={englishChecked ? ok ? "correct" : "wrong" : ""} key={question.label}><div className="word-prompt"><strong>{question.icon}</strong><span>{question.label}</span></div><div className="word-options">{question.options.map((option) => <button className={chosen === option ? "chosen" : ""} onClick={() => { setEnglishChecked(false); setAnswer("englishAnswers", index, option); }} key={option}>{option}</button>)}</div>{englishChecked && <small>{ok ? "Точно!" : "Попробуй другой вариант"}</small>}</article>; })}</div>
             {englishChecked && !englishAllCorrect && <Feedback>Есть неточности. Посмотри на подсказки и попробуй ещё раз.</Feedback>}
-            <ActionButton disabled={progress.englishAnswers.some((item) => !item)} onClick={() => { setEnglishChecked(true); patch({ englishAttempts: progress.englishAttempts + 1 }); if (englishAllCorrect) complete("english", "English-разведка завершена"); }}>Проверить всю разведку</ActionButton>
+            <ActionButton disabled={progress.englishAnswers.some((item) => !item) || progress.done.includes("english")} onClick={() => checkLearning("english")}>Проверить всю разведку</ActionButton>
           </>}
           {view === "order" && <>
             <Intro title="Порядок за пять минут" text="Сегодня новый короткий набор. Достаточно выполнить любые три пункта." />

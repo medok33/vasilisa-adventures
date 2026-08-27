@@ -15,6 +15,25 @@ function cleanBookProgress(value: unknown) {
   }));
 }
 function textRecord(value: unknown) { return value && typeof value === "object" ? Object.fromEntries(Object.entries(value as Record<string, unknown>).slice(0, 100).map(([key, item]) => [key.slice(0, 40), textValue(item, 800)])) : {}; }
+function cleanLearningHistory(value: unknown) {
+  const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  return Object.fromEntries((["math", "english"] as const).map((subject) => {
+    const questions = source[subject] && typeof source[subject] === "object" ? source[subject] as Record<string, unknown> : {};
+    const cleaned = Object.entries(questions).slice(0, 20).map(([key, item]) => {
+      const question = item && typeof item === "object" ? item as Record<string, unknown> : {};
+      const questionId = textValue(question.questionId, 80) || key.slice(0, 80);
+      const rawAttempts = Array.isArray(question.attempts) ? question.attempts as Array<Record<string, unknown>> : [];
+      const attempts = rawAttempts.slice(0, 99).map((attempt, index) => ({
+        number: index + 1,
+        answer: textValue(attempt.answer, 200),
+        correct: Boolean(attempt.correct),
+        checkedAt: textValue(attempt.checkedAt, 40),
+      }));
+      return [questionId, { questionId, prompt: textValue(question.prompt, 300), expectedAnswer: textValue(question.expectedAnswer, 200), attempts }];
+    });
+    return [subject, Object.fromEntries(cleaned)];
+  }));
+}
 function inheritedReading(payload: ProgressPayload) {
   const bookProgress = cleanBookProgress(payload.bookProgress);
   const legacyFrom = Number(payload.readingStart); const legacyTo = Number(payload.readingEnd);
@@ -27,7 +46,7 @@ function cleanPayload(input: ProgressPayload) {
     done: strings(input.done, 10), morningChecks: strings(input.morningChecks, 10), orderChecks: strings(input.orderChecks, 10),
     readingStart: textValue(input.readingStart, 4), readingEnd: textValue(input.readingEnd, 4),
     readingMinutes: Math.max(15, Math.min(30, Number(input.readingMinutes) || 15)), readingAnswer: textValue(input.readingAnswer, 500), ...inheritedReading(input),
-    mathAnswers: strings(input.mathAnswers, 5), mathAttempts: Math.max(0, Math.min(99, Math.round(Number(input.mathAttempts) || 0))), englishAnswers: strings(input.englishAnswers, 6), englishAttempts: Math.max(0, Math.min(99, Math.round(Number(input.englishAttempts) || 0))),
+    mathAnswers: strings(input.mathAnswers, 5), mathAttempts: Math.max(0, Math.min(99, Math.round(Number(input.mathAttempts) || 0))), englishAnswers: strings(input.englishAnswers, 6), englishAttempts: Math.max(0, Math.min(99, Math.round(Number(input.englishAttempts) || 0))), learningHistory: cleanLearningHistory(input.learningHistory),
     kindnessChoice: textValue(input.kindnessChoice, 200), kindnessNote: textValue(input.kindnessNote, 400), independenceChoice: textValue(input.independenceChoice, 200), independenceNote: textValue(input.independenceNote, 400),
     mood: textValue(input.mood, 8), goodThing: textValue(input.goodThing, 500), hardThing: textValue(input.hardThing, 500), dadNote: textValue(input.dadNote, 600), dadNotifiedText: textValue(input.dadNotifiedText, 600), dadNotifiedAt: textValue(input.dadNotifiedAt, 40),
     balance: money(input.balance), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), phone: textValue(input.phone, 16), reserveStar: Boolean(input.reserveStar), decision: textValue(input.decision, 12),

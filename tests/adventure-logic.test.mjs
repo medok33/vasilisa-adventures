@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { dailyContent } from "../app/daily-content.ts";
 import { BOOKS, activeQuestion, cleanRanges, continuousPage, isBookFinished, mergeRanges, nextBook } from "../app/books.ts";
+import { emptyLearningHistory, recordLearningAttempt } from "../app/learning-history.ts";
 
 test("daily tasks are stable for one day and differ on the next day", () => {
   const today = dailyContent("2026-08-27");
@@ -24,4 +25,23 @@ test("reading ranges merge and books open sequentially", () => {
   assert.equal(isBookFinished(cleanRanges([{ from: 5, to: 288 }], emerald), emerald), true);
   assert.equal(nextBook("emerald")?.id, "urfin");
   assert.equal(nextBook("pippi"), null);
+});
+
+test("every learning check keeps the first and following answers per question", () => {
+  const questions = [
+    { id: "2026-08-27-sum", label: "27 + 15", answer: "42" },
+    { id: "2026-08-27-word", label: "книга", answer: "book" },
+  ];
+  const initial = emptyLearningHistory();
+  const first = recordLearningAttempt(initial, "math", questions, ["41", "book"], "2026-08-27T09:00:00.000Z");
+  const second = recordLearningAttempt(first, "math", questions, ["42", "book"], "2026-08-27T09:02:00.000Z");
+
+  assert.deepEqual(initial, { math: {}, english: {} });
+  assert.deepEqual(second.math["2026-08-27-sum"].attempts, [
+    { number: 1, answer: "41", correct: false, checkedAt: "2026-08-27T09:00:00.000Z" },
+    { number: 2, answer: "42", correct: true, checkedAt: "2026-08-27T09:02:00.000Z" },
+  ]);
+  assert.equal(second.math["2026-08-27-word"].attempts[0].correct, true);
+  assert.equal(second.math["2026-08-27-sum"].prompt, "27 + 15");
+  assert.equal(second.math["2026-08-27-sum"].expectedAnswer, "42");
 });
