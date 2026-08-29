@@ -269,25 +269,28 @@ export function recordAttempts(day: string, subject: LearningSubject, answers: A
   return results;
 }
 
-function evaluateSkill(database: DatabaseSync, day: string, subject: LearningSubject, skill: string, completedDays: string[]) {
-  if (!completedDays.length) return;
-  const placeholders = completedDays.map(() => "?").join(",");
+function evaluateSkill(database: DatabaseSync, day: string, subject: LearningSubject, skill: string, completedDays: string[], perfectSubjectDays: string[]) {
+  const existing = database.prepare("SELECT * FROM skill_progress WHERE subject=? AND skill=?").get(subject, skill) as Record<string, unknown> | undefined;
+  if (String(existing?.last_evaluated_day ?? "") === day) return;
+  const lastChangedOn = String(existing?.last_changed_on ?? "");
+  const evidenceDays = completedDays.filter((completedDay) => !lastChangedOn || completedDay > lastChangedOn);
+  if (!evidenceDays.length) return;
+  const placeholders = evidenceDays.map(() => "?").join(",");
   const firstAttempts = database.prepare(`SELECT a.day,t.correct,t.hint_used
     FROM daily_assignments a JOIN learning_items i ON i.id=a.item_id
     JOIN attempts t ON t.assignment_id=a.id AND t.attempt_number=1
-    WHERE a.subject=? AND i.skill=? AND a.day IN (${placeholders})`).all(subject, skill, ...completedDays) as Array<{ day: string; correct: number; hint_used: number }>;
+    WHERE a.subject=? AND i.skill=? AND a.day IN (${placeholders})`).all(subject, skill, ...evidenceDays) as Array<{ day: string; correct: number; hint_used: number }>;
   const slowCorrections = database.prepare(`SELECT COUNT(*) AS total FROM (
     SELECT a.id FROM daily_assignments a JOIN learning_items i ON i.id=a.item_id JOIN attempts t ON t.assignment_id=a.id
     WHERE a.subject=? AND i.skill=? AND a.day IN (${placeholders}) GROUP BY a.id HAVING MAX(t.attempt_number)>2
-  )`).get(subject, skill, ...completedDays) as { total: number };
-  const existing = database.prepare("SELECT * FROM skill_progress WHERE subject=? AND skill=?").get(subject, skill) as Record<string, unknown> | undefined;
-  if (String(existing?.last_evaluated_day ?? "") === day) return;
+  )`).get(subject, skill, ...evidenceDays) as { total: number };
   const total = firstAttempts.length;
   const distinctDays = new Set(firstAttempts.map((attempt) => attempt.day)).size;
   const correct = firstAttempts.filter((attempt) => attempt.correct).length;
   const hints = firstAttempts.filter((attempt) => attempt.hint_used).length;
   const oldLevel = Math.max(0, Number(existing?.level ?? 1));
-  const decisionResult = decideSkillAdaptation({ day, level: oldLevel, total, correct, hints, overTwoAttempts: Number(slowCorrections.total), distinctDays });
+  const perfectStreakDays = perfectSubjectDays.filter((perfectDay) => !lastChangedOn || perfectDay > lastChangedOn).length;
+  const decisionResult = decideSkillAdaptation({ day, level: oldLevel, total, correct, hints, overTwoAttempts: Number(slowCorrections.total), distinctDays, perfectStreakDays });
   const { level: newLevel, decision, reason, reviewDueDates: reviewDue, accuracy } = decisionResult;
   database.prepare(`INSERT INTO skill_progress(subject,skill,level,state,first_attempt_correct,first_attempt_total,accuracy,review_due_json,last_evaluated_day,last_changed_on,updated_at)
     VALUES(?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
@@ -295,7 +298,24 @@ function evaluateSkill(database: DatabaseSync, day: string, subject: LearningSub
     first_attempt_total=excluded.first_attempt_total,accuracy=excluded.accuracy,review_due_json=excluded.review_due_json,last_evaluated_day=excluded.last_evaluated_day,
     last_changed_on=excluded.last_changed_on,updated_at=CURRENT_TIMESTAMP`).run(subject, skill, newLevel, decision, correct, total, accuracy, JSON.stringify(reviewDue), day, newLevel !== oldLevel ? day : String(existing?.last_changed_on ?? ""));
   database.prepare(`INSERT INTO adaptation_log(day,subject,skill,old_level,new_level,decision,reason,stats_json)
-    VALUES(?,?,?,?,?,?,?,?)`).run(day, subject, skill, oldLevel, newLevel, decision, reason, JSON.stringify({ total, correct, accuracy, hints, overTwoAttempts: Number(slowCorrections.total), distinctDays }));
+    VALUES(?,?,?,?,?,?,?,?)`).run(day, subject, skill, oldLevel, newLevel, decision, reason, JSON.stringify({ total, correct, accuracy, hints, overTwoAttempts: Number(slowCorrections.total), distinctDays, perfectStreakDays }));
+}
+
+function consecutivePerfectSubjectDays(database: DatabaseSync, day: string, subject: LearningSubject) {
+  const completionColumn = subject === "math" ? "math_completed" : "english_completed";
+  const perfectDays: string[] = [];
+  for (let offset = 0; offset < 7; offset += 1) {
+    const candidateDay = addDays(day, -offset);
+    const summary = database.prepare(`SELECT d.${completionColumn} AS completed,COUNT(a.id) AS total,
+      SUM(CASE WHEN t.correct=1 AND t.hint_used=0 THEN 1 ELSE 0 END) AS perfect
+      FROM learning_days d
+      LEFT JOIN daily_assignments a ON a.day=d.day AND a.subject=?
+      LEFT JOIN attempts t ON t.assignment_id=a.id AND t.attempt_number=1
+      WHERE d.day=?`).get(subject, candidateDay) as { completed?: number; total: number; perfect: number | null } | undefined;
+    if (!summary || Number(summary.completed) !== 1 || Number(summary.total) === 0 || Number(summary.perfect) !== Number(summary.total)) break;
+    perfectDays.push(candidateDay);
+  }
+  return perfectDays;
 }
 
 export function completeLearningDay(day: string, doneSubjects: LearningSubject[]) {
@@ -307,7 +327,8 @@ export function completeLearningDay(day: string, doneSubjects: LearningSubject[]
   for (const subject of doneSubjects) {
     const column = subject === "math" ? "math_completed" : "english_completed";
     const days = database.prepare(`SELECT day FROM learning_days WHERE day<=? AND ${column}=1 ORDER BY day DESC LIMIT 7`).all(day) as Array<{ day: string }>;
-    for (const skill of SUBJECT_SKILLS[subject]) evaluateSkill(database, day, subject, skill, days.map((entry) => entry.day));
+    const perfectSubjectDays = consecutivePerfectSubjectDays(database, day, subject);
+    for (const skill of SUBJECT_SKILLS[subject]) evaluateSkill(database, day, subject, skill, days.map((entry) => entry.day), perfectSubjectDays);
   }
 }
 

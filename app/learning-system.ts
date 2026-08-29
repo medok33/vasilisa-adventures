@@ -301,34 +301,42 @@ export type AdaptationEvidence = {
   hints: number;
   overTwoAttempts: number;
   distinctDays: number;
+  perfectStreakDays: number;
 };
 
 export function decideSkillAdaptation(evidence: AdaptationEvidence) {
-  const { day, total, correct, hints, overTwoAttempts, distinctDays } = evidence;
+  const { day, total, correct, hints, overTwoAttempts, distinctDays, perfectStreakDays } = evidence;
   const oldLevel = normalizeLevel(evidence.level);
   const accuracy = total ? correct / total : 0;
   if (total < 7 || distinctDays < 3) return {
     level: oldLevel,
     decision: "collecting" as const,
-    reason: `Собрано ${total} из 7 первых попыток минимум за три учебных дня.`,
+    reason: `По навыку собрано ${total} из 7 первых попыток минимум за три учебных дня. Безошибочная серия по предмету: ${perfectStreakDays} из 7 дней.`,
     reviewDueDates: [] as string[],
     accuracy,
   };
-  if (correct === total && hints === 0) {
-    const level = Math.min(4, oldLevel + 1);
-    return {
-      level,
-      decision: level === oldLevel ? "hold" as const : "increase" as const,
-      reason: level === oldLevel ? "Все первые ответы верны без подсказок; достигнут безопасный предел уровня." : "Минимум семь заданий за неделю выполнены с первой попытки и без подсказок.",
-      reviewDueDates: [] as string[],
-      accuracy,
-    };
-  }
   if (accuracy < 0.7 || overTwoAttempts >= 2 || hints >= 2) return {
     level: oldLevel,
     decision: "reinforce" as const,
     reason: "Навык не понижен: назначено спокойное закрепление с возвратом через 2, 4 и 7 дней.",
     reviewDueDates: [addDays(day, 2), addDays(day, 4), addDays(day, 7)],
+    accuracy,
+  };
+  if (correct === total && hints === 0 && perfectStreakDays >= 7) {
+    const level = Math.min(4, oldLevel + 1);
+    return {
+      level,
+      decision: level === oldLevel ? "hold" as const : "increase" as const,
+      reason: level === oldLevel ? "Семь последовательных дней пройдены без ошибок и подсказок; достигнут безопасный предел уровня." : "Семь последовательных дней по предмету пройдены с первой попытки и без подсказок; начинается новый семидневный цикл.",
+      reviewDueDates: [] as string[],
+      accuracy,
+    };
+  }
+  if (correct === total && hints === 0) return {
+    level: oldLevel,
+    decision: "hold" as const,
+    reason: `Первые ответы по навыку верны, но безошибочная серия по предмету составляет ${perfectStreakDays} из 7 последовательных дней.`,
+    reviewDueDates: [] as string[],
     accuracy,
   };
   return {

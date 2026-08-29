@@ -64,8 +64,8 @@ test("site session expires and return paths cannot leave the site", async () => 
 });
 
 test("seven perfect days raise only the evaluated skill", () => {
-  const multiplication = decideSkillAdaptation({ day: "2026-09-07", level: 1, total: 7, correct: 7, hints: 0, overTwoAttempts: 0, distinctDays: 7 });
-  const wordProblems = decideSkillAdaptation({ day: "2026-09-07", level: 1, total: 7, correct: 4, hints: 2, overTwoAttempts: 3, distinctDays: 7 });
+  const multiplication = decideSkillAdaptation({ day: "2026-09-07", level: 1, total: 7, correct: 7, hints: 0, overTwoAttempts: 0, distinctDays: 7, perfectStreakDays: 7 });
+  const wordProblems = decideSkillAdaptation({ day: "2026-09-07", level: 1, total: 7, correct: 4, hints: 2, overTwoAttempts: 3, distinctDays: 7, perfectStreakDays: 0 });
   assert.equal(multiplication.decision, "increase");
   assert.equal(multiplication.level, 2);
   assert.equal(wordProblems.decision, "reinforce");
@@ -74,15 +74,21 @@ test("seven perfect days raise only the evaluated skill", () => {
 });
 
 test("strong math and weak English receive independent decisions", () => {
-  const math = decideSkillAdaptation({ day: "2026-09-07", level: 1, total: 14, correct: 14, hints: 0, overTwoAttempts: 0, distinctDays: 7 });
-  const english = decideSkillAdaptation({ day: "2026-09-07", level: 1, total: 14, correct: 8, hints: 4, overTwoAttempts: 4, distinctDays: 7 });
+  const math = decideSkillAdaptation({ day: "2026-09-07", level: 1, total: 14, correct: 14, hints: 0, overTwoAttempts: 0, distinctDays: 7, perfectStreakDays: 7 });
+  const english = decideSkillAdaptation({ day: "2026-09-07", level: 1, total: 14, correct: 8, hints: 4, overTwoAttempts: 4, distinctDays: 7, perfectStreakDays: 0 });
   assert.equal(math.decision, "increase");
   assert.equal(english.decision, "reinforce");
   assert.equal(english.level, 1);
 });
 
 test("one mistake does not erase progress or lower a level", () => {
-  const result = decideSkillAdaptation({ day: "2026-09-07", level: 2, total: 10, correct: 9, hints: 0, overTwoAttempts: 0, distinctDays: 5 });
+  const result = decideSkillAdaptation({ day: "2026-09-07", level: 2, total: 10, correct: 9, hints: 0, overTwoAttempts: 0, distinctDays: 5, perfectStreakDays: 0 });
   assert.equal(result.decision, "hold");
   assert.equal(result.level, 2);
+});
+
+test("seven correct answers spread over only three days do not raise a level", () => {
+  const result = decideSkillAdaptation({ day: "2026-09-03", level: 1, total: 7, correct: 7, hints: 0, overTwoAttempts: 0, distinctDays: 3, perfectStreakDays: 3 });
+  assert.equal(result.decision, "hold");
+  assert.equal(result.level, 1);
 });

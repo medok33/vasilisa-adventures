@@ -43,6 +43,51 @@ test("seven perfect completed days increase only sufficiently practised skills",
     const latest = store.getOrCreateAssignments("2026-09-08").skillProgress;
     assert.ok(latest.some((state) => state.level === 2 && state.state === "increase"));
     assert.ok(latest.some((state) => state.level === 1));
+
+    const eighth = store.getOrCreateAssignments("2026-09-08");
+    for (const subject of ["math", "english"]) {
+      store.recordAttempts("2026-09-08", subject, eighth[subject].map((question) => ({ questionId: question.id, answer: question.answer, responseMs: 10_000 })));
+    }
+    store.completeLearningDay("2026-09-08", ["math", "english"]);
+    assert.ok(store.getOrCreateAssignments("2026-09-09").skillProgress.every((state) => state.level <= 2));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("three perfect days are not enough to increase difficulty", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "vasilisa-short-streak-"));
+  process.env.DATA_DIR = directory;
+  try {
+    const store = await import(`../vds/learning-store.ts?test=${Date.now()}-short`);
+    for (let index = 1; index <= 3; index += 1) {
+      const day = `2026-10-0${index}`;
+      const assignments = store.getOrCreateAssignments(day);
+      for (const subject of ["math", "english"]) {
+        store.recordAttempts(day, subject, assignments[subject].map((question) => ({ questionId: question.id, answer: question.answer })));
+      }
+      store.completeLearningDay(day, ["math", "english"]);
+    }
+    assert.ok(store.getOrCreateAssignments("2026-10-04").skillProgress.every((state) => state.level === 1));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("a missed calendar day breaks the seven-day mastery streak", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "vasilisa-broken-streak-"));
+  process.env.DATA_DIR = directory;
+  try {
+    const store = await import(`../vds/learning-store.ts?test=${Date.now()}-gap`);
+    for (const index of [1, 2, 3, 5, 6, 7, 8]) {
+      const day = `2026-11-${String(index).padStart(2, "0")}`;
+      const assignments = store.getOrCreateAssignments(day);
+      for (const subject of ["math", "english"]) {
+        store.recordAttempts(day, subject, assignments[subject].map((question) => ({ questionId: question.id, answer: question.answer })));
+      }
+      store.completeLearningDay(day, ["math", "english"]);
+    }
+    assert.ok(store.getOrCreateAssignments("2026-11-09").skillProgress.every((state) => state.level === 1));
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
