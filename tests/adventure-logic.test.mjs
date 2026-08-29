@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { dailyContent } from "../app/daily-content.ts";
-import { BOOKS, activeQuestion, cleanRanges, continuousPage, isBookFinished, mergeRanges, nextBook } from "../app/books.ts";
+import { BOOKS, activeQuestion, cleanRanges, continuousPage, isBookFinished, isReadingAnswerCorrect, mergeRanges, nextBook, readingStarCount } from "../app/books.ts";
 import { emptyLearningHistory, recordLearningAttempt } from "../app/learning-history.ts";
 
 test("daily tasks are stable for one day and differ on the next day", () => {
@@ -25,6 +25,33 @@ test("reading ranges merge and books open sequentially", () => {
   assert.equal(isBookFinished(cleanRanges([{ from: 5, to: 288 }], emerald), emerald), true);
   assert.equal(nextBook("emerald")?.id, "urfin");
   assert.equal(nextBook("pippi"), null);
+});
+
+test("every book question has a bounded page range and an automatic correct answer", () => {
+  assert.equal(BOOKS.reduce((total, book) => total + book.questions.length, 0), 17);
+  for (const book of BOOKS) {
+    for (const question of book.questions) {
+      assert.ok(question.fromPage >= book.firstPage);
+      assert.ok(question.unlockPage >= question.fromPage && question.unlockPage <= book.lastPage);
+      assert.equal(question.options.includes(question.answer), true);
+      assert.equal(isReadingAnswerCorrect(question, question.answer), true);
+      assert.equal(isReadingAnswerCorrect(question, "другой ответ"), false);
+    }
+  }
+});
+
+test("a book question remains available after a wrong choice and closes only after the correct one", () => {
+  const question = BOOKS[2].questions[0];
+  assert.equal(activeQuestion(BOOKS[2], question.unlockPage, ["wrong"])?.id, question.id);
+  assert.equal(activeQuestion(BOOKS[2], question.unlockPage, [question.id]), null);
+});
+
+test("the third reading star requires a correct book answer", () => {
+  const book = BOOKS[0];
+  const question = book.questions[0];
+  assert.equal(readingStarCount(book, { [question.id]: question.options[1] }, 30, true), 2);
+  assert.equal(readingStarCount(book, { [question.id]: question.answer }, 15, true), 3);
+  assert.equal(readingStarCount(book, { [question.id]: question.answer }, 30, false), 0);
 });
 
 test("every learning check keeps the first and following answers per question", () => {

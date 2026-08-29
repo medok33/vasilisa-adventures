@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
-import { activeQuestion, BOOKS, cleanRanges, continuousPage, getBook, isBookFinished, mergeRanges, nextBook, type BookId, type BookProgress } from "./books";
+import { activeQuestion, BOOKS, cleanRanges, continuousPage, getBook, hasCorrectReadingAnswer as hasCorrectBookAnswer, isBookFinished, isReadingAnswerCorrect, mergeRanges, nextBook, readingStarCount, type BookId, type BookProgress } from "./books";
 import { dailyContent } from "./daily-content";
 import { emptyLearningHistory, recordLearningAttempt, type LearningHistory, type LearningSubject } from "./learning-history";
 
@@ -113,17 +113,16 @@ export default function Adventure() {
   const readingBook = getBook(progress.readingBook);
   const savedReadingRanges = cleanRanges(progress.bookProgress?.[readingBook.id], readingBook);
   const confirmedReadingPage = continuousPage(savedReadingRanges, readingBook);
-  const answeredReadingQuestions = Object.keys(progress.readingQuestionAnswers ?? {}).filter((id) => progress.readingQuestionAnswers[id]?.trim());
-  const unlockedQuestion = activeQuestion(readingBook, confirmedReadingPage, answeredReadingQuestions);
+  const answeredReadingQuestions = readingBook.questions.filter((question) => isReadingAnswerCorrect(question, progress.readingQuestionAnswers?.[question.id])).map((question) => question.id);
+  const hasCorrectReadingAnswer = hasCorrectBookAnswer(readingBook, progress.readingQuestionAnswers);
+  const unlockedQuestion = hasCorrectReadingAnswer ? null : activeQuestion(readingBook, confirmedReadingPage, answeredReadingQuestions);
   const completedBooks = BOOKS.filter((book) => isBookFinished(cleanRanges(progress.bookProgress?.[book.id], book), book)).length;
 
-  const readingStars = progress.done.includes("reading")
-    ? progress.readingMinutes >= 25 && progress.readingAnswer.trim().length >= 8 ? 3 : progress.readingMinutes >= 20 ? 2 : 1
-    : 0;
-  const earnedStars = useMemo(() => {
+  const readingStars = readingStarCount(readingBook, progress.readingQuestionAnswers, progress.readingMinutes, progress.done.includes("reading"));
+  const earnedStars = (() => {
     const fixed = progress.done.reduce((sum, id) => sum + (id === "math" ? 2 : id === "reading" ? 0 : 1), 0);
     return Math.min(10, fixed + readingStars + (progress.reserveStar && fixed + readingStars === 9 ? 1 : 0));
-  }, [progress.done, progress.reserveStar, readingStars]);
+  })();
   const rewardBudget = earnedStars * 15;
   const savingsTransfer = Math.min(Math.floor(rewardBudget / 10) * 10, progress.savingsTransfer);
   const tomorrowLimit = 100 + rewardBudget - savingsTransfer;
@@ -258,7 +257,7 @@ export default function Adventure() {
   const mathAllCorrect = mathQuestions.every((question, index) => progress.mathAnswers[index]?.trim() === question.answer);
   const englishAllCorrect = englishQuestions.every((question, index) => progress.englishAnswers[index] === question.answer);
   const readingReady = Boolean(progress.readingStart && progress.readingEnd && Number(progress.readingEnd) >= Number(progress.readingStart) && Number(progress.readingStart) >= Math.max(readingBook.firstPage, confirmedReadingPage + 1) && Number(progress.readingEnd) <= readingBook.lastPage);
-  const readingPotential = !readingReady ? 0 : progress.readingMinutes >= 25 && progress.readingAnswer.trim().length >= 8 ? 3 : progress.readingMinutes >= 20 ? 2 : 1;
+  const readingPotential = !readingReady ? 0 : progress.readingMinutes >= 20 ? 2 : 1;
 
   if (view !== "home" && view !== "wallet" && view !== "journal" && view !== "parent") {
     const mission = missions.find((item) => item.id === view)!;
@@ -275,11 +274,12 @@ export default function Adventure() {
           {view === "reading" && <>
             <Intro title={readingBook.title} text="Продолжай с сохранённой страницы. Следующая книга откроется только после завершения этой." />
             <div className="book-status"><span>Книга {BOOKS.findIndex((book) => book.id === readingBook.id) + 1} из {BOOKS.length} · завершено {completedBooks}</span><strong>{confirmedReadingPage < readingBook.firstPage ? `Начни со страницы ${readingBook.firstPage}` : `Прочитано подряд до страницы ${confirmedReadingPage}`}</strong><small>стр. {readingBook.firstPage}–{readingBook.lastPage} · ISBN {readingBook.isbn}</small></div>
-            <div className="reading-levels">{[{m:15,s:1,t:"Разминка"},{m:20,s:2,t:"Исследователь"},{m:30,s:3,t:"Книжный герой"}].map((level) => <button key={level.m} className={progress.readingMinutes === level.m ? "selected" : ""} onClick={() => patch({ readingMinutes: level.m })}><strong>{level.m} минут</strong><span>{level.t}</span><b>{level.s} ⭐</b></button>)}</div>
+            <div className="reading-levels">{[{m:15,s:1,t:"Разминка"},{m:20,s:2,t:"Исследователь"},{m:30,s:2,t:"Книжный герой"}].map((level) => <button key={level.m} className={progress.readingMinutes === level.m ? "selected" : ""} onClick={() => patch({ readingMinutes: level.m })}><strong>{level.m} минут</strong><span>{level.t}</span><b>{level.s} ⭐</b></button>)}</div>
             <div className="field-pair"><label><span>Начала со страницы</span><input inputMode="numeric" min={Math.max(readingBook.firstPage, confirmedReadingPage + 1)} max={readingBook.lastPage} value={progress.readingStart} onChange={(e) => patch({ readingStart: e.target.value })} placeholder={String(Math.max(readingBook.firstPage, confirmedReadingPage + 1))} /></label><label><span>Закончила на странице</span><input inputMode="numeric" min={readingBook.firstPage} max={readingBook.lastPage} value={progress.readingEnd} onChange={(e) => patch({ readingEnd: e.target.value })} placeholder={`до ${readingBook.lastPage}`} /></label></div>
-            {unlockedQuestion && <label className="long-field reading-question"><span>Вопрос по уже прочитанной части</span><strong>{unlockedQuestion.prompt}</strong><textarea value={progress.readingQuestionAnswers[unlockedQuestion.id] ?? ""} onChange={(e) => patch({ readingQuestionAnswers: { ...progress.readingQuestionAnswers, [unlockedQuestion.id]: e.target.value } })} placeholder="Ответь своими словами" /></label>}
+            {unlockedQuestion && <section className="reading-question"><span>Вопрос по страницам {unlockedQuestion.fromPage}–{unlockedQuestion.unlockPage}</span><strong>{unlockedQuestion.prompt}</strong><div className="reading-options">{unlockedQuestion.options.map((option) => <button key={option} className={progress.readingQuestionAnswers[unlockedQuestion.id] === option ? "selected" : ""} onClick={() => patch({ readingQuestionAnswers: { ...progress.readingQuestionAnswers, [unlockedQuestion.id]: option } })}>{option}</button>)}</div>{progress.readingQuestionAnswers[unlockedQuestion.id] && !isReadingAnswerCorrect(unlockedQuestion, progress.readingQuestionAnswers[unlockedQuestion.id]) && <small>Пока не совпало. Вспомни этот отрывок и попробуй ещё раз.</small>}</section>}
+            {hasCorrectReadingAnswer && <div className="reading-answer-ok"><strong>Ответ принят · +1 ⭐ за понимание прочитанного</strong><span>Всего за чтение сегодня: 3 ⭐</span></div>}
             {isBookFinished(savedReadingRanges, readingBook) && nextBook(readingBook.id) && <button className="next-book" onClick={() => patch({ readingBook: nextBook(readingBook.id)!.id, readingStart: "", readingEnd: "", readingAnswer: "" })}>Начать следующую книгу: «{nextBook(readingBook.id)!.title}» →</button>}
-            <div className="live-result"><span>Сейчас открывается</span><strong>{readingPotential} из 3 ⭐</strong></div>
+            <div className="live-result"><span>{hasCorrectReadingAnswer ? "Ответ уже добавил третью звезду" : "Сейчас открывается"}</span><strong>{hasCorrectReadingAnswer ? 3 : readingPotential} из 3 ⭐</strong>{!hasCorrectReadingAnswer && readingPotential >= 2 && <small>Третья звезда — за верный ответ на вопрос по прочитанным страницам.</small>}</div>
             <ActionButton disabled={!readingReady} onClick={() => complete("reading", "Страницы добавлены в книжную историю", readingPotential)}>Сохранить прочитанные страницы</ActionButton>
           </>}
           {view === "math" && <>

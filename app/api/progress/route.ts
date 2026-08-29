@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { getBook, readingStarCount } from "../../books";
 
 type ProgressPayload = Record<string, unknown>;
 
@@ -102,7 +103,10 @@ export async function PUT(request: Request) {
     const day = validDay(body.day ?? null);
     if (!day) return Response.json({ error: "Некорректная дата" }, { status: 400 });
     const progress = cleanPayload(body.progress ?? {});
-    const stars = Math.max(0, Math.min(10, Math.round(Number(body.stars) || 0)));
+    const fixedStars = progress.done.reduce((sum, id) => sum + (id === "math" ? 2 : id === "reading" ? 0 : 1), 0);
+    const readingStars = readingStarCount(getBook(progress.readingBook), progress.readingQuestionAnswers, progress.readingMinutes, progress.done.includes("reading"));
+    const reserveStar = progress.reserveStar && fixedStars + readingStars === 9 ? 1 : 0;
+    const stars = Math.min(10, fixedStars + readingStars + reserveStar);
     const savingsTransfer = Math.min(Math.floor(stars * 15 / 10) * 10, Number(progress.savingsTransfer) || 0);
     const tomorrowLimit = 100 + stars * 15 - savingsTransfer;
     await env.DB.prepare(`INSERT INTO daily_progress (day, payload, stars, tomorrow_limit, closed, updated_at)

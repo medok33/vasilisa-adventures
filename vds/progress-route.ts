@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { getBook, readingStarCount } from "../../books";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -158,7 +159,10 @@ export async function PUT(request: Request) {
     const day = validDay(body.day ?? null);
     if (!day) return noStore({ error: "Некорректная дата" }, { status: 400 });
     const payload = cleanPayload(body.progress ?? {});
-    const stars = Math.max(0, Math.min(10, Math.round(Number(body.stars) || 0)));
+    const fixedStars = payload.done.reduce((sum, id) => sum + (id === "math" ? 2 : id === "reading" ? 0 : 1), 0);
+    const readingStars = readingStarCount(getBook(payload.readingBook), payload.readingQuestionAnswers, payload.readingMinutes, payload.done.includes("reading"));
+    const reserveStar = payload.reserveStar && fixedStars + readingStars === 9 ? 1 : 0;
+    const stars = Math.min(10, fixedStars + readingStars + reserveStar);
     const savingsTransfer = Math.min(Math.floor(stars * 15 / 10) * 10, Number(payload.savingsTransfer) || 0);
     const tomorrowLimit = 100 + stars * 15 - savingsTransfer;
     await updateDatabase((database) => {
