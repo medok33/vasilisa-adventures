@@ -16,6 +16,7 @@ function cleanBookProgress(value: unknown) {
   }));
 }
 function textRecord(value: unknown) { return value && typeof value === "object" ? Object.fromEntries(Object.entries(value as Record<string, unknown>).slice(0, 100).map(([key, item]) => [key.slice(0, 40), textValue(item, 800)])) : {}; }
+function booleanRecord(value: unknown) { return value && typeof value === "object" ? Object.fromEntries(Object.entries(value as Record<string, unknown>).slice(0, 100).map(([key, item]) => [key.slice(0, 120), Boolean(item)])) : {}; }
 function cleanLearningHistory(value: unknown) {
   const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
   return Object.fromEntries((["math", "english"] as const).map((subject) => {
@@ -29,8 +30,10 @@ function cleanLearningHistory(value: unknown) {
         answer: textValue(attempt.answer, 200),
         correct: Boolean(attempt.correct),
         checkedAt: textValue(attempt.checkedAt, 40),
+        hintUsed: Boolean(attempt.hintUsed),
+        responseMs: Math.max(0, Math.min(3_600_000, Math.round(Number(attempt.responseMs) || 0))),
       }));
-      return [questionId, { questionId, prompt: textValue(question.prompt, 300), expectedAnswer: textValue(question.expectedAnswer, 200), attempts }];
+      return [questionId, { questionId, prompt: textValue(question.prompt, 300), expectedAnswer: textValue(question.expectedAnswer, 200), subject, skill: textValue(question.skill, 80) || "general", topic: textValue(question.topic, 80) || "general", level: Math.max(0, Math.min(4, Math.round(Number(question.level) || 1))), role: textValue(question.role, 20) || "legacy", templateId: textValue(question.templateId, 100) || "legacy", attempts }];
     });
     return [subject, Object.fromEntries(cleaned)];
   }));
@@ -47,10 +50,10 @@ function cleanPayload(input: ProgressPayload) {
     done: strings(input.done, 10), morningChecks: strings(input.morningChecks, 10), orderChecks: strings(input.orderChecks, 10),
     readingStart: textValue(input.readingStart, 4), readingEnd: textValue(input.readingEnd, 4),
     readingMinutes: Math.max(15, Math.min(30, Number(input.readingMinutes) || 15)), readingAnswer: textValue(input.readingAnswer, 500), ...inheritedReading(input),
-    mathAnswers: strings(input.mathAnswers, 5), mathAttempts: Math.max(0, Math.min(99, Math.round(Number(input.mathAttempts) || 0))), englishAnswers: strings(input.englishAnswers, 6), englishAttempts: Math.max(0, Math.min(99, Math.round(Number(input.englishAttempts) || 0))), learningHistory: cleanLearningHistory(input.learningHistory),
+    mathAnswers: strings(input.mathAnswers, 5), mathAttempts: Math.max(0, Math.min(99, Math.round(Number(input.mathAttempts) || 0))), englishAnswers: strings(input.englishAnswers, 6), englishAttempts: Math.max(0, Math.min(99, Math.round(Number(input.englishAttempts) || 0))), learningHistory: cleanLearningHistory(input.learningHistory), learningHints: booleanRecord(input.learningHints),
     kindnessChoice: textValue(input.kindnessChoice, 200), kindnessNote: textValue(input.kindnessNote, 400), independenceChoice: textValue(input.independenceChoice, 200), independenceNote: textValue(input.independenceNote, 400),
     mood: textValue(input.mood, 8), goodThing: textValue(input.goodThing, 500), hardThing: textValue(input.hardThing, 500), dadNote: textValue(input.dadNote, 600), dadNotifiedText: textValue(input.dadNotifiedText, 600), dadNotifiedAt: textValue(input.dadNotifiedAt, 40),
-    balance: money(input.balance), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), phone: textValue(input.phone, 16), reserveStar: Boolean(input.reserveStar), decision: textValue(input.decision, 12),
+    balance: money(input.balance), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), reserveStar: Boolean(input.reserveStar), decision: textValue(input.decision, 12),
     savingsTransfer: Math.floor(money(input.savingsTransfer) / 10) * 10, savingsApplied: Boolean(input.savingsApplied),
     motherSignature: textValue(input.motherSignature, 200_000), signedAt: textValue(input.signedAt, 40),
   };
@@ -69,7 +72,7 @@ export async function GET(request: Request) {
     const previous = await env.DB.prepare("SELECT payload, tomorrow_limit FROM daily_progress WHERE day < ? AND closed = 1 ORDER BY day DESC LIMIT 1").bind(day).first<{ payload: string; tomorrow_limit: number }>();
     const latest = await env.DB.prepare("SELECT payload FROM daily_progress WHERE day < ? ORDER BY day DESC LIMIT 1").bind(day).first<{ payload: string }>();
     const previousPayload = previous ? JSON.parse(previous.payload) as ProgressPayload : {};
-    const inherited = { balance: money(previousPayload.balance), goalTitle: textValue(previousPayload.goalTitle, 80), goalAmount: money(previousPayload.goalAmount), phone: textValue(previousPayload.phone, 16), ...inheritedReading(latest ? JSON.parse(latest.payload) as ProgressPayload : previousPayload) };
+    const inherited = { balance: money(previousPayload.balance), goalTitle: textValue(previousPayload.goalTitle, 80), goalAmount: money(previousPayload.goalAmount), ...inheritedReading(latest ? JSON.parse(latest.payload) as ProgressPayload : previousPayload) };
     if (!current) return Response.json({ progress: { ...inherited, done: [] }, stars: 0, todayLimit: previous?.tomorrow_limit ?? 100, tomorrowLimit: 100, closed: false });
     return Response.json({ progress: { ...inherited, ...JSON.parse(current.payload) }, stars: current.stars, todayLimit: previous?.tomorrow_limit ?? 100, tomorrowLimit: current.tomorrow_limit, closed: Boolean(current.closed) });
   } catch (error) {

@@ -9,6 +9,10 @@ COPY . .
 RUN chmod +x scripts/build-vds.sh && scripts/build-vds.sh
 
 FROM node:22-bookworm-slim AS runtime
+ARG APP_REVISION=unknown
+ARG APP_SOURCE=https://github.com/medok33/vasilisa-adventures
+LABEL org.opencontainers.image.revision=$APP_REVISION \
+      org.opencontainers.image.source=$APP_SOURCE
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \

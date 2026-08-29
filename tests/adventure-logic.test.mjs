@@ -65,10 +65,11 @@ test("every learning check keeps the first and following answers per question", 
 
   assert.deepEqual(initial, { math: {}, english: {} });
   assert.deepEqual(second.math["2026-08-27-sum"].attempts, [
-    { number: 1, answer: "41", correct: false, checkedAt: "2026-08-27T09:00:00.000Z" },
-    { number: 2, answer: "42", correct: true, checkedAt: "2026-08-27T09:02:00.000Z" },
+    { number: 1, answer: "41", correct: false, checkedAt: "2026-08-27T09:00:00.000Z", hintUsed: false, responseMs: 0 },
+    { number: 2, answer: "42", correct: true, checkedAt: "2026-08-27T09:02:00.000Z", hintUsed: false, responseMs: 0 },
   ]);
   assert.equal(second.math["2026-08-27-word"].attempts[0].correct, true);
   assert.equal(second.math["2026-08-27-sum"].prompt, "27 + 15");
   assert.equal(second.math["2026-08-27-sum"].expectedAnswer, "42");
+  assert.equal(second.math["2026-08-27-sum"].skill, "general");
 });

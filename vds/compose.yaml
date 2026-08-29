@@ -5,16 +5,24 @@ services:
     build:
       context: ..
       dockerfile: vds/Dockerfile
+      args:
+        APP_REVISION: ${APP_REVISION:-unknown}
     restart: unless-stopped
     environment:
       DATA_DIR: /data
       TZ: Europe/Moscow
+      SITE_AUTH_USERNAME: ${SITE_AUTH_USERNAME:?Set SITE_AUTH_USERNAME on the VDS}
+      SITE_AUTH_PASSWORD: ${SITE_AUTH_PASSWORD:?Set SITE_AUTH_PASSWORD on the VDS}
+      SITE_AUTH_SECRET: ${SITE_AUTH_SECRET:?Set SITE_AUTH_SECRET on the VDS}
+      DAD_PHONE: ${DAD_PHONE:?Set DAD_PHONE on the VDS}
+      DAD_VK_URL: ${DAD_VK_URL:?Set DAD_VK_URL on the VDS}
+      DAD_MAX_URL: ${DAD_MAX_URL:?Set DAD_MAX_URL on the VDS}
     volumes:
       - vasilisa_data:/data
     ports:
       - "127.0.0.1:3100:3000"
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 20s
       timeout: 5s
       retries: 5

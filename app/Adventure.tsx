@@ -6,12 +6,14 @@ import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
 import { activeQuestion, BOOKS, cleanRanges, continuousPage, getBook, hasCorrectReadingAnswer as hasCorrectBookAnswer, isBookFinished, isReadingAnswerCorrect, mergeRanges, nextBook, readingStarCount, type BookId, type BookProgress } from "./books";
 import { dailyContent } from "./daily-content";
 import { emptyLearningHistory, recordLearningAttempt, type LearningHistory, type LearningSubject } from "./learning-history";
+import { isAnswerCorrect, type LearningQuestion } from "./learning-system";
 
 type MissionId = "morning" | "reading" | "math" | "english" | "order" | "kindness" | "independence";
 type View = "home" | "wallet" | "journal" | "parent" | MissionId;
 type NavSection = "today" | "wallet" | "journal" | "parent";
 type CelebrationEvent = { id: MissionId; text: string; stars: number };
 type HistoryDay = { day: string; progress: Partial<Progress>; stars: number; tomorrowLimit: number; closed: boolean };
+type DadContacts = { phone: string; vkUrl: string; maxUrl: string };
 type Progress = {
   done: MissionId[];
   morningChecks: string[];
@@ -27,6 +29,7 @@ type Progress = {
   englishAnswers: string[];
   englishAttempts: number;
   learningHistory: LearningHistory;
+  learningHints: Record<string, boolean>;
   orderChecks: string[];
   kindnessChoice: string;
   kindnessNote: string;
@@ -41,7 +44,6 @@ type Progress = {
   balance: number;
   goalTitle: string;
   goalAmount: number;
-  phone: string;
   reserveStar: boolean;
   decision: string;
   savingsTransfer: number;
@@ -60,9 +62,6 @@ type Mission = {
   accent: string;
 };
 
-const DAD_PHONE = "+79209400222";
-const DAD_VK_URL = "https://vk.me/akuznetsovv";
-const DAD_MAX_URL = `https://max.ru/:share?text=${encodeURIComponent("Папа, привет! Это Василиса 👋")}`;
 
 const missions: Mission[] = [
   { id: "morning", index: "01", kicker: "Начало дня", title: "Утренний запуск", note: "4 простых шага для бодрого старта", reward: "1 ⭐", accent: "sun" },
@@ -76,9 +75,9 @@ const missions: Mission[] = [
 
 const emptyProgress: Progress = {
   done: [], morningChecks: [], readingStart: "", readingEnd: "", readingMinutes: 15, readingAnswer: "", readingBook: "emerald", bookProgress: {}, readingQuestionAnswers: {},
-  mathAnswers: ["", "", "", "", ""], mathAttempts: 0, englishAnswers: ["", "", "", "", "", ""], englishAttempts: 0, learningHistory: emptyLearningHistory(), orderChecks: [],
+  mathAnswers: ["", "", "", "", ""], mathAttempts: 0, englishAnswers: ["", "", "", "", "", ""], englishAttempts: 0, learningHistory: emptyLearningHistory(), learningHints: {}, orderChecks: [],
   kindnessChoice: "", kindnessNote: "", independenceChoice: "", independenceNote: "", mood: "", goodThing: "", hardThing: "", dadNote: "", dadNotifiedText: "", dadNotifiedAt: "",
-  balance: 0, goalTitle: "", goalAmount: 0, phone: DAD_PHONE, reserveStar: false, decision: "",
+  balance: 0, goalTitle: "", goalAmount: 0, reserveStar: false, decision: "",
   savingsTransfer: 0, savingsApplied: false, motherSignature: "", signedAt: "",
 };
 
@@ -106,9 +105,12 @@ export default function Adventure() {
   const [celebration, setCelebration] = useState<CelebrationEvent | null>(null);
   const [history, setHistory] = useState<HistoryDay[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [learningAssignments, setLearningAssignments] = useState<{ math: LearningQuestion[]; english: LearningQuestion[] } | null>(null);
+  const [dadContacts, setDadContacts] = useState<DadContacts | null>(null);
+  const questionStartedAt = useRef<Record<string, number>>({});
   const content = useMemo(() => dailyContent(day), [day]);
-  const mathQuestions = content.math;
-  const englishQuestions = content.english;
+  const mathQuestions = learningAssignments?.math ?? [];
+  const englishQuestions = learningAssignments?.english ?? [];
   const orderItems = useMemo(() => content.order.map((label, index) => [`daily-${index}`, label]), [content.order]);
   const readingBook = getBook(progress.readingBook);
   const savedReadingRanges = cleanRanges(progress.bookProgress?.[readingBook.id], readingBook);
@@ -130,14 +132,27 @@ export default function Adventure() {
   const weeklyFragments = weekDays.filter((item) => item.stars >= 7).length + (earnedStars >= 7 ? 1 : 0);
 
   useEffect(() => {
-    fetch(`/api/progress?day=${day}`).then(async (response) => {
-      if (!response.ok) throw new Error("load");
+    Promise.all([fetch(`/api/progress?day=${day}`), fetch(`/api/learning?day=${day}`)]).then(async ([response, learningResponse]) => {
+      if (!response.ok || !learningResponse.ok) throw new Error("load");
       const data = await response.json() as { progress?: Partial<Progress>; closed?: boolean; todayLimit?: number };
-      const loadedProgress = { ...emptyProgress, ...(data.progress ?? {}), phone: data.progress?.phone || DAD_PHONE, done: (data.progress?.done ?? []) as MissionId[] };
-      setProgress({ ...loadedProgress, bookProgress: loadedProgress.bookProgress ?? {}, readingQuestionAnswers: loadedProgress.readingQuestionAnswers ?? {}, learningHistory: loadedProgress.learningHistory ?? emptyLearningHistory() });
+      const learning = await learningResponse.json() as { math?: LearningQuestion[]; english?: LearningQuestion[] };
+      if (learning.math?.length !== 5 || learning.english?.length !== 6) throw new Error("learning-load");
+      setLearningAssignments({ math: learning.math, english: learning.english });
+      const loadedProgress = { ...emptyProgress, ...(data.progress ?? {}), done: (data.progress?.done ?? []) as MissionId[] };
+      setProgress({ ...loadedProgress, bookProgress: loadedProgress.bookProgress ?? {}, readingQuestionAnswers: loadedProgress.readingQuestionAnswers ?? {}, learningHistory: loadedProgress.learningHistory ?? emptyLearningHistory(), learningHints: loadedProgress.learningHints ?? {} });
       setClosed(Boolean(data.closed)); setTodayLimit(Number(data.todayLimit) || 100); setSaveState("saved"); setLoaded(true);
-    }).catch(() => { setLoaded(true); setSaveState("offline"); });
+    }).catch(() => setSaveState("offline"));
   }, [day]);
+
+  useEffect(() => {
+    fetch("/api/contact")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("contact");
+        return response.json() as Promise<DadContacts>;
+      })
+      .then(setDadContacts)
+      .catch(() => setDadContacts(null));
+  }, []);
 
   useEffect(() => {
     fetch("/api/progress?history=1")
@@ -202,16 +217,38 @@ export default function Adventure() {
     if (closed) return;
     setProgress((current) => { const next = [...current[field]]; next[index] = value; return { ...current, [field]: next }; });
   }
-  function checkLearning(subject: LearningSubject) {
-    if (closed || progress.done.includes(subject)) return;
+  function markQuestionStarted(questionId: string) {
+    questionStartedAt.current[questionId] ??= Date.now();
+  }
+  function showLearningHint(questionId: string) {
+    markQuestionStarted(questionId);
+    patch({ learningHints: { ...progress.learningHints, [questionId]: true } });
+  }
+  async function checkLearning(subject: LearningSubject) {
+    if (!learningAssignments || closed || progress.done.includes(subject)) return;
     const questions = subject === "math" ? mathQuestions : englishQuestions;
     const answers = subject === "math" ? progress.mathAnswers : progress.englishAnswers;
-    const allCorrect = questions.every((question, index) => answers[index]?.trim() === question.answer);
     const checkedAt = new Date().toISOString();
+    const attemptMeta = questions.map((question) => ({ hintUsed: Boolean(progress.learningHints[question.id]), responseMs: Math.max(0, Date.now() - (questionStartedAt.current[question.id] ?? Date.now())) }));
+    let results: Array<{ questionId: string; correct: boolean }>;
+    try {
+      const response = await fetch("/api/learning", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ day, subject, answers: questions.map((question, index) => ({ questionId: question.id, answer: answers[index] ?? "", ...attemptMeta[index] })) }),
+      });
+      if (!response.ok) throw new Error("learning-attempt");
+      results = ((await response.json()) as { results?: Array<{ questionId: string; correct: boolean }> }).results ?? [];
+    } catch {
+      setSaveState("offline");
+      return;
+    }
+    const resultById = new Map(results.map((result) => [result.questionId, result.correct]));
+    const allCorrect = results.length === questions.length && questions.every((question) => resultById.get(question.id) === true);
     setProgress((current) => ({
       ...current,
       [subject === "math" ? "mathAttempts" : "englishAttempts"]: current[subject === "math" ? "mathAttempts" : "englishAttempts"] + 1,
-      learningHistory: recordLearningAttempt(current.learningHistory, subject, questions, subject === "math" ? current.mathAnswers : current.englishAnswers, checkedAt),
+      learningHistory: recordLearningAttempt(current.learningHistory, subject, questions, subject === "math" ? current.mathAnswers : current.englishAnswers, checkedAt, attemptMeta),
       done: allCorrect && !current.done.includes(subject) ? [...current.done, subject] : current.done,
     }));
     if (subject === "math") setMathChecked(true); else setEnglishChecked(true);
@@ -254,8 +291,8 @@ export default function Adventure() {
   const activeSection: NavSection = view === "wallet" || view === "journal" || view === "parent" ? view : "today";
   const bottomNav = <BottomNav active={activeSection} onOpen={openSection} />;
 
-  const mathAllCorrect = mathQuestions.every((question, index) => progress.mathAnswers[index]?.trim() === question.answer);
-  const englishAllCorrect = englishQuestions.every((question, index) => progress.englishAnswers[index] === question.answer);
+  const mathAllCorrect = mathQuestions.every((question, index) => isAnswerCorrect({ answer: question.answer }, progress.mathAnswers[index] ?? ""));
+  const englishAllCorrect = englishQuestions.every((question, index) => isAnswerCorrect({ answer: question.answer }, progress.englishAnswers[index] ?? ""));
   const readingReady = Boolean(progress.readingStart && progress.readingEnd && Number(progress.readingEnd) >= Number(progress.readingStart) && Number(progress.readingStart) >= Math.max(readingBook.firstPage, confirmedReadingPage + 1) && Number(progress.readingEnd) <= readingBook.lastPage);
   const readingPotential = !readingReady ? 0 : progress.readingMinutes >= 20 ? 2 : 1;
 
@@ -284,15 +321,17 @@ export default function Adventure() {
           </>}
           {view === "math" && <>
             <Intro title="Введи код экспедиции" text="Реши пять заданий. Ошибка ничего не отнимает — можно исправлять сколько нужно." />
-            <div className="math-list">{mathQuestions.map((question, index) => { const value = progress.mathAnswers[index] ?? ""; const ok = value.trim() === question.answer; return <label className={mathChecked ? ok ? "correct" : "wrong" : ""} key={question.label}><span><small>Задание {index + 1}</small>{question.label}</span><input inputMode="numeric" value={value} onChange={(e) => { setMathChecked(false); setAnswer("mathAnswers", index, e.target.value); }} placeholder="Ответ" />{mathChecked && <b>{ok ? "Верно" : "Проверь"}</b>}</label>; })}</div>
+            {!learningAssignments && saveState === "offline" && <Feedback>Учебные задания пока не загрузились. Проверь связь и обнови страницу — ответы не потеряются.</Feedback>}
+            <div className="math-list">{mathQuestions.map((question, index) => { const value = progress.mathAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, value); return <label className={mathChecked ? ok ? "correct" : "wrong" : ""} key={question.id}><span><small>Задание {index + 1} · {question.role === "reinforcement" ? "закрепление" : question.role === "stretch" ? "небольшой вызов" : "текущий уровень"}</small>{question.label}</span><input inputMode="numeric" value={value} onFocus={() => markQuestionStarted(question.id)} onChange={(e) => { markQuestionStarted(question.id); setMathChecked(false); setAnswer("mathAnswers", index, e.target.value); }} placeholder="Ответ" /><div className="learning-assist">{Boolean(question.hint) && <button type="button" className="learning-hint-button" onClick={(event) => { event.preventDefault(); showLearningHint(question.id); }}>Подсказка</button>}{progress.learningHints[question.id] && <em className="learning-hint-text">{question.hint}</em>}{mathChecked && <b>{ok ? "Верно" : "Проверь"}</b>}</div></label>; })}</div>
             {mathChecked && !mathAllCorrect && <Feedback>Не всё сошлось. Исправь отмеченные ответы — попытки не ограничены.</Feedback>}
-            <ActionButton disabled={progress.mathAnswers.some((item) => !item) || progress.done.includes("math")} onClick={() => checkLearning("math")}>{mathChecked && mathAllCorrect ? "Шифр открыт!" : "Проверить ответы"}</ActionButton>
+            <ActionButton disabled={!learningAssignments || progress.mathAnswers.some((item) => !item) || progress.done.includes("math")} onClick={() => checkLearning("math")}>{mathChecked && mathAllCorrect ? "Шифр открыт!" : "Проверить ответы"}</ActionButton>
           </>}
           {view === "english" && <>
-            <Intro title="Собери словарь разведчика" text="Нажми на правильное английское слово. В последнем задании выбери перевод фразы." />
-            <div className="english-list">{englishQuestions.map((question, index) => { const chosen = progress.englishAnswers[index]; const ok = chosen === question.answer; return <article className={englishChecked ? ok ? "correct" : "wrong" : ""} key={question.label}><div className="word-prompt"><strong>{question.icon}</strong><span>{question.label}</span></div><div className="word-options">{question.options.map((option) => <button className={chosen === option ? "chosen" : ""} onClick={() => { setEnglishChecked(false); setAnswer("englishAnswers", index, option); }} key={option}>{option}</button>)}</div>{englishChecked && <small>{ok ? "Точно!" : "Попробуй другой вариант"}</small>}</article>; })}</div>
+            <Intro title="Собери словарь разведчика" text="Выполни шесть коротких заданий: выбирай ответы или пиши английские слова и фразы." />
+            {!learningAssignments && saveState === "offline" && <Feedback>Учебные задания пока не загрузились. Проверь связь и обнови страницу — ответы не потеряются.</Feedback>}
+            <div className="english-list">{englishQuestions.map((question, index) => { const chosen = progress.englishAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, chosen); const isInput = "kind" in question && question.kind === "input"; return <article className={englishChecked ? ok ? "correct" : "wrong" : ""} key={question.id}><div className="word-prompt"><strong>{question.icon}</strong><span>{question.label}</span></div>{isInput ? <input className="english-text-answer" value={chosen} onFocus={() => markQuestionStarted(question.id)} onChange={(event) => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, event.target.value); }} placeholder="Напиши ответ" /> : <div className="word-options">{question.options?.map((option) => <button className={chosen === option ? "chosen" : ""} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, option); }} key={option}>{option}</button>)}</div>}{"hint" in question && Boolean(question.hint) && <button type="button" className="learning-hint-button" onClick={() => showLearningHint(question.id)}>Подсказка</button>}{progress.learningHints[question.id] && "hint" in question && <em className="learning-hint-text">{String(question.hint)}</em>}{englishChecked && <small>{ok ? "Точно!" : "Попробуй ещё раз"}</small>}</article>; })}</div>
             {englishChecked && !englishAllCorrect && <Feedback>Есть неточности. Посмотри на подсказки и попробуй ещё раз.</Feedback>}
-            <ActionButton disabled={progress.englishAnswers.some((item) => !item) || progress.done.includes("english")} onClick={() => checkLearning("english")}>Проверить всю разведку</ActionButton>
+            <ActionButton disabled={!learningAssignments || progress.englishAnswers.some((item) => !item) || progress.done.includes("english")} onClick={() => checkLearning("english")}>Проверить всю разведку</ActionButton>
           </>}
           {view === "order" && <>
             <Intro title="Порядок за пять минут" text="Сегодня новый короткий набор. Достаточно выполнить любые три пункта." />
@@ -320,7 +359,7 @@ export default function Adventure() {
   }
 
   if (view === "wallet") return <><WalletScreen progress={progress} patch={patch} todayLimit={todayLimit} tomorrowLimit={tomorrowLimit} rewardBudget={rewardBudget} closed={closed} onUnlock={reopenDay} onBack={() => goTo("home")} />{bottomNav}</>;
-  if (view === "journal") return <><JournalScreen day={day} progress={progress} patch={patch} history={history} historyLoading={historyLoading} closed={closed} onUnlock={reopenDay} onNotifyDad={notifyDad} onBack={() => goTo("home")} />{bottomNav}</>;
+  if (view === "journal") return <><JournalScreen day={day} progress={progress} patch={patch} history={history} historyLoading={historyLoading} dadContacts={dadContacts} closed={closed} onUnlock={reopenDay} onNotifyDad={notifyDad} onBack={() => goTo("home")} />{bottomNav}</>;
   if (view === "parent") return <><ParentScreen day={day} progress={progress} patch={patch} closed={closed} onCloseDay={closeDay} onReopenDay={reopenDay} stars={earnedStars} tomorrowLimit={tomorrowLimit} rewardBudget={rewardBudget} onBack={() => goTo("home")} onOpenMission={(id) => goTo(id)} onOpenWallet={() => goTo("wallet")} />{bottomNav}</>;
 
   return (
@@ -431,13 +470,12 @@ function WalletScreen({ progress, patch, todayLimit, tomorrowLimit, rewardBudget
 
 const moods = [{id:"joy",label:"Радостно"},{id:"calm",label:"Спокойно"},{id:"okay",label:"Обычно"},{id:"sad",label:"Грустно"},{id:"tired",label:"Устала"}] as const;
 
-function JournalScreen({ day, progress, patch, history, historyLoading, closed, onUnlock, onNotifyDad, onBack }: { day: string; progress: Progress; patch: (next: Partial<Progress>) => void; history: HistoryDay[]; historyLoading: boolean; closed: boolean; onUnlock: () => void; onNotifyDad: (note: string) => Promise<boolean>; onBack: () => void }) {
+function JournalScreen({ day, progress, patch, history, historyLoading, dadContacts, closed, onUnlock, onNotifyDad, onBack }: { day: string; progress: Progress; patch: (next: Partial<Progress>) => void; history: HistoryDay[]; historyLoading: boolean; dadContacts: DadContacts | null; closed: boolean; onUnlock: () => void; onNotifyDad: (note: string) => Promise<boolean>; onBack: () => void }) {
   const [selectedDay, setSelectedDay] = useState(day);
   const [notifyState, setNotifyState] = useState<"idle" | "sending" | "sent" | "setup" | "error">("idle");
   const selectedRecord = history.find((item) => item.day === selectedDay);
   const shown = selectedDay === day ? progress : { ...emptyProgress, ...(selectedRecord?.progress ?? {}) };
   const isToday = selectedDay === day;
-  const phone = DAD_PHONE;
   async function sendNote() {
     if (!shown.dadNote.trim()) return;
     setNotifyState("sending");
@@ -448,12 +486,14 @@ function JournalScreen({ day, progress, patch, history, historyLoading, closed, 
     <ScreenTop title="Мой день" subtitle={isToday ? "Мысли, настроение и маленькие победы" : dayLabel(selectedDay)} icon="journal" onBack={onBack}/>
     {closed && isToday && <DayLockedBanner onUnlock={onUnlock}/>} 
     <section className="journal-history"><div className="history-heading"><div><span>Дневник Василисы</span><h2>История дней</h2></div><small>{historyLoading ? "Загружаю…" : `${Math.max(history.length, 1)} дней сохранено`}</small></div><div className="history-strip"><button className={isToday ? "selected" : ""} onClick={() => setSelectedDay(day)}><b>Сегодня</b><span>{new Date(`${day}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</span></button>{history.filter((item) => item.day !== day).slice(0, 30).map((item) => <button className={selectedDay === item.day ? "selected" : ""} onClick={() => setSelectedDay(item.day)} key={item.day}><b>{new Date(`${item.day}T12:00:00`).toLocaleDateString("ru-RU", { weekday: "short" })}</b><span>{new Date(`${item.day}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</span><i>{item.stars} ⭐</i></button>)}</div></section>
-    <section className={`journal-sheet ${isToday ? "" : "history-view"}`}><div className="journal-title"><span className="journal-emblem"><NavIcon name="journal"/></span><div><small>{isToday ? "Сегодня" : "Запись из истории"}</small><h1>{isToday ? "Как ты сегодня?" : dayLabel(selectedDay)}</h1></div></div><div className="mood-row">{moods.map(mood=><button disabled={!isToday} aria-pressed={shown.mood===mood.id} aria-label={mood.label} title={mood.label} className={shown.mood===mood.id?"selected":""} onClick={()=>patch({mood:mood.id})} key={mood.id}><MoodIcon mood={mood.id}/><span>{mood.label}</span></button>)}</div>{isToday ? <><label><span>Что сегодня получилось?</span><textarea value={shown.goodThing} onChange={e=>patch({goodThing:e.target.value})} placeholder="Даже маленькая победа считается"/></label><label><span>Что сегодня не получилось или было сложно?</span><textarea value={shown.hardThing} onChange={e=>patch({hardThing:e.target.value})} placeholder="Можно написать честно — за это не ругают"/></label><label><span>Есть чем поделиться с папой?</span><textarea value={shown.dadNote} onChange={e=>{patch({dadNote:e.target.value});setNotifyState("idle");}} placeholder="Напиши просьбу, новость или просто важную мысль"/></label><button className="dad-notify-button" disabled={!shown.dadNote.trim() || notifyState === "sending" || shown.dadNotifiedText === shown.dadNote.trim()} onClick={sendNote}><ContactMark kind="vk"/><span><b>{notifyState === "sending" ? "Отправляю…" : shown.dadNotifiedText === shown.dadNote.trim() || notifyState === "sent" ? "Папа получил сообщение" : "Поделиться с папой"}</b><small>{notifyState === "setup" ? "Записано. Уведомления VK нужно один раз подключить" : notifyState === "error" ? "Не отправилось — попробуй ещё раз" : "Уведомление придёт папе сразу"}</small></span></button><DadContact phone={phone}/><button className="primary-action" onClick={onBack}>Сохранить мой день</button></> : <div className="history-sections"><HistoryBlock icon="✓" title="Что получилось" text={shown.goodThing}/><HistoryBlock icon="↗" title="Что не получилось" text={shown.hardThing}/><HistoryBlock icon="♥" title="Просьбы и сообщения папе" text={shown.dadNote}/><div className="history-summary"><span>{selectedRecord?.stars ?? 0} ⭐</span><span>{selectedRecord?.closed ? "Подтверждено мамой" : "День не закрыт"}</span></div></div>}</section>
+    <section className={`journal-sheet ${isToday ? "" : "history-view"}`}><div className="journal-title"><span className="journal-emblem"><NavIcon name="journal"/></span><div><small>{isToday ? "Сегодня" : "Запись из истории"}</small><h1>{isToday ? "Как ты сегодня?" : dayLabel(selectedDay)}</h1></div></div><div className="mood-row">{moods.map(mood=><button disabled={!isToday} aria-pressed={shown.mood===mood.id} aria-label={mood.label} title={mood.label} className={shown.mood===mood.id?"selected":""} onClick={()=>patch({mood:mood.id})} key={mood.id}><MoodIcon mood={mood.id}/><span>{mood.label}</span></button>)}</div>{isToday ? <><label><span>Что сегодня получилось?</span><textarea value={shown.goodThing} onChange={e=>patch({goodThing:e.target.value})} placeholder="Даже маленькая победа считается"/></label><label><span>Что сегодня не получилось или было сложно?</span><textarea value={shown.hardThing} onChange={e=>patch({hardThing:e.target.value})} placeholder="Можно написать честно — за это не ругают"/></label><label><span>Есть чем поделиться с папой?</span><textarea value={shown.dadNote} onChange={e=>{patch({dadNote:e.target.value});setNotifyState("idle");}} placeholder="Напиши просьбу, новость или просто важную мысль"/></label><button className="dad-notify-button" disabled={!shown.dadNote.trim() || notifyState === "sending" || shown.dadNotifiedText === shown.dadNote.trim()} onClick={sendNote}><ContactMark kind="vk"/><span><b>{notifyState === "sending" ? "Отправляю…" : shown.dadNotifiedText === shown.dadNote.trim() || notifyState === "sent" ? "Папа получил сообщение" : "Поделиться с папой"}</b><small>{notifyState === "setup" ? "Записано. Уведомления VK нужно один раз подключить" : notifyState === "error" ? "Не отправилось — попробуй ещё раз" : "Уведомление придёт папе сразу"}</small></span></button><DadContact contacts={dadContacts}/><button className="primary-action" onClick={onBack}>Сохранить мой день</button></> : <div className="history-sections"><HistoryBlock icon="✓" title="Что получилось" text={shown.goodThing}/><HistoryBlock icon="↗" title="Что не получилось" text={shown.hardThing}/><HistoryBlock icon="♥" title="Просьбы и сообщения папе" text={shown.dadNote}/><div className="history-summary"><span>{selectedRecord?.stars ?? 0} ⭐</span><span>{selectedRecord?.closed ? "Подтверждено мамой" : "День не закрыт"}</span></div></div>}</section>
   </main>;
 }
 
 function HistoryBlock({ icon, title, text }: { icon: string; title: string; text: string }) { return <article><span>{icon}</span><div><strong>{title}</strong><p>{text.trim() || "В этот день записи не было"}</p></div></article>; }
-function DadContact({ phone }: { phone: string }) { return <section className="dad-contact"><div className="dad-contact-copy"><span className="dad-avatar">П</span><div><strong>Папа на связи</strong><span>Можно позвонить или написать</span></div></div><div className="dad-contact-actions"><a className="phone" href={`tel:${phone}`} aria-label="Позвонить папе"><ContactIcon/><span><b>Позвонить</b><small>сразу по телефону</small></span></a><a className="vk" href={DAD_VK_URL} target="_blank" rel="noreferrer" aria-label="Написать папе во ВКонтакте"><ContactMark kind="vk"/><span><b>ВКонтакте</b><small>личные сообщения</small></span></a><a className="max" href={DAD_MAX_URL} target="_blank" rel="noreferrer" aria-label="Написать папе в MAX"><ContactMark kind="max"/><span><b>MAX</b><small>открыть приложение</small></span></a></div></section>; }
+function DadContact({ contacts }: { contacts: DadContacts | null }) {
+  return <section className="dad-contact"><div className="dad-contact-copy"><span className="dad-avatar">П</span><div><strong>Папа на связи</strong><span>{contacts ? "Можно позвонить или написать" : "Контакты доступны после настройки сервера"}</span></div></div>{contacts && <div className="dad-contact-actions"><a className="phone" href={`tel:${contacts.phone}`} aria-label="Позвонить папе"><ContactIcon/><span><b>Позвонить</b><small>сразу по телефону</small></span></a><a className="vk" href={contacts.vkUrl} target="_blank" rel="noreferrer" aria-label="Написать папе во ВКонтакте"><ContactMark kind="vk"/><span><b>ВКонтакте</b><small>личные сообщения</small></span></a><a className="max" href={contacts.maxUrl} target="_blank" rel="noreferrer" aria-label="Написать папе в MAX"><ContactMark kind="max"/><span><b>MAX</b><small>открыть приложение</small></span></a></div>}</section>;
+}
 
 function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, stars, tomorrowLimit, rewardBudget, onBack, onOpenMission, onOpenWallet }: { day: string; progress: Progress; patch: (next: Partial<Progress>) => void; closed: boolean; onCloseDay: (signature: string) => void; onReopenDay: () => void; stars: number; tomorrowLimit: number; rewardBudget: number; onBack: () => void; onOpenMission: (id: MissionId) => void; onOpenWallet: () => void }) {
   const baseWithoutReserve = stars - (progress.reserveStar ? 1 : 0);
