@@ -25,7 +25,7 @@ read_secret "Ссылка MAX папы: " dad_max_url
 [[ -n "$site_user" ]] || { printf 'Логин не задан.\n' >&2; exit 1; }
 (( ${#site_password} >= 8 )) || { printf 'Пароль должен содержать не менее 8 символов.\n' >&2; exit 1; }
 [[ "$dad_phone" =~ ^\+?[0-9\ \(\)-]{7,24}$ ]] || { printf 'Телефон имеет неверный формат.\n' >&2; exit 1; }
-[[ "$dad_vk_url" =~ ^https://(www\.|m\.)?vk\.com/[^[:space:]]+$ ]] || { printf 'Нужна HTTPS-ссылка на vk.com.\n' >&2; exit 1; }
+[[ "$dad_vk_url" =~ ^https://(www\.|m\.)?vk\.(com|ru)/[^[:space:]]+$ ]] || { printf 'Нужна HTTPS-ссылка на vk.com или vk.ru.\n' >&2; exit 1; }
 [[ "$dad_max_url" =~ ^https://(www\.)?max\.ru/[^[:space:]]+$ ]] || { printf 'Нужна HTTPS-ссылка на max.ru.\n' >&2; exit 1; }
 
 site_secret="$(openssl rand -hex 32)"
