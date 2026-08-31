@@ -4,7 +4,7 @@ set -euo pipefail
 umask 077
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-env_file="$project_dir/.env"
+env_file="$project_dir/vds/.env"
 backup_root="/home/zapolnaya28/vasilisa-backups"
 
 read_secret() {
@@ -32,7 +32,7 @@ read_secret "Ссылка MAX папы: " dad_max_url
 
 site_secret="$(openssl rand -hex 32)"
 app_revision="$(git -C "$project_dir" rev-parse HEAD)"
-tmp_file="$(mktemp "$project_dir/.env.tmp.XXXXXX")"
+tmp_file="$(mktemp "$project_dir/vds/.env.tmp.XXXXXX")"
 trap 'rm -f "$tmp_file"' EXIT
 
 printf '%s\n' \
