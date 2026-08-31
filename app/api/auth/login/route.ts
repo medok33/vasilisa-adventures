@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
 import { createSiteSession, safeReturnTo, secureTextEqual, SITE_SESSION_COOKIE, SITE_SESSION_TTL_SECONDS } from "../../../site-auth";
 
+function relativeRedirect(location: string) {
+  return new NextResponse(null, {
+    status: 303,
+    headers: {
+      "cache-control": "no-store",
+      location,
+    },
+  });
+}
+
 export async function POST(request: Request) {
   const expectedUsername = process.env.SITE_AUTH_USERNAME;
   const expectedPassword = process.env.SITE_AUTH_PASSWORD;
@@ -16,13 +26,11 @@ export async function POST(request: Request) {
     secureTextEqual(password, expectedPassword),
   ]);
   if (!usernameMatches || !passwordMatches) {
-    const failure = new URL("/login", request.url);
-    failure.searchParams.set("error", "1");
-    failure.searchParams.set("returnTo", returnTo);
-    return NextResponse.redirect(failure, 303);
+    const failureParams = new URLSearchParams({ error: "1", returnTo });
+    return relativeRedirect(`/login?${failureParams.toString()}`);
   }
 
-  const response = NextResponse.redirect(new URL(returnTo, request.url), 303);
+  const response = relativeRedirect(returnTo);
   response.cookies.set(SITE_SESSION_COOKIE, await createSiteSession(secret), {
     httpOnly: true,
     secure: true,
