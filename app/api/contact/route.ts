@@ -13,7 +13,7 @@ function secureUrl(value: string | undefined, allowedHosts: ReadonlySet<string>)
 
 export async function GET() {
   const phone = process.env.DAD_PHONE?.trim();
-  const vkUrl = secureUrl(process.env.DAD_VK_URL, new Set(["vk.com", "www.vk.com", "m.vk.com"]));
+  const vkUrl = secureUrl(process.env.DAD_VK_URL, new Set(["vk.com", "www.vk.com", "m.vk.com", "vk.ru", "www.vk.ru", "m.vk.ru"]));
   const maxUrl = secureUrl(process.env.DAD_MAX_URL, new Set(["max.ru", "www.max.ru"]));
   if (!phone || !/^\+?[0-9 ()-]{7,24}$/.test(phone) || !vkUrl || !maxUrl) {
     return Response.json({ error: "Контакты папы не настроены" }, { status: 503, headers: { "cache-control": "no-store" } });
