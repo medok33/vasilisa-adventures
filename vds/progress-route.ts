@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { getBook, readingStarCount } from "../../books";
+import { BOOKS, cleanBookReflections, cleanDailyReadingSession, cleanRanges, isBookFinished, readingStarCount } from "../../books";
 import { completeLearningDay } from "../../../vds/learning-store";
 
 export const runtime = "nodejs";
@@ -70,15 +70,17 @@ function inheritedReading(payload: ProgressPayload) {
   const bookProgress = cleanBookProgress(payload.bookProgress);
   const legacyFrom = Number(payload.readingStart); const legacyTo = Number(payload.readingEnd);
   if (!bookProgress.emerald.length && Number.isFinite(legacyFrom) && Number.isFinite(legacyTo) && legacyFrom <= legacyTo) bookProgress.emerald = [{ from: 5, to: Math.min(288, legacyTo) }];
-  return { readingBook: ["emerald", "urfin", "pippi"].includes(String(payload.readingBook)) ? payload.readingBook : "emerald", bookProgress, readingQuestionAnswers: textRecord(payload.readingQuestionAnswers) };
+  const bookReflections = cleanBookReflections(payload.bookReflections);
+  for (const book of BOOKS) if (!isBookFinished(cleanRanges(bookProgress[book.id], book), book)) delete bookReflections[book.id];
+  return { readingBook: ["emerald", "urfin", "pippi"].includes(String(payload.readingBook)) ? payload.readingBook : "emerald", bookProgress, bookReflections, readingQuestionAnswers: textRecord(payload.readingQuestionAnswers) };
 }
 
-function cleanPayload(input: ProgressPayload) {
+function cleanPayload(input: ProgressPayload, day: string) {
   return {
     done: strings(input.done, 10), morningChecks: strings(input.morningChecks, 10), orderChecks: strings(input.orderChecks, 10),
     readingStart: textValue(input.readingStart, 4), readingEnd: textValue(input.readingEnd, 4),
     readingMinutes: Math.max(15, Math.min(30, Number(input.readingMinutes) || 15)), readingAnswer: textValue(input.readingAnswer, 500),
-    ...inheritedReading(input), mathAnswers: strings(input.mathAnswers, 5), mathAttempts: Math.max(0, Math.min(99, Math.round(Number(input.mathAttempts) || 0))), englishAnswers: strings(input.englishAnswers, 6), englishAttempts: Math.max(0, Math.min(99, Math.round(Number(input.englishAttempts) || 0))), learningHistory: cleanLearningHistory(input.learningHistory), learningHints: booleanRecord(input.learningHints),
+    ...inheritedReading(input), readingSession: cleanDailyReadingSession(input.readingSession, day), mathAnswers: strings(input.mathAnswers, 5), mathAttempts: Math.max(0, Math.min(99, Math.round(Number(input.mathAttempts) || 0))), englishAnswers: strings(input.englishAnswers, 6), englishAttempts: Math.max(0, Math.min(99, Math.round(Number(input.englishAttempts) || 0))), learningHistory: cleanLearningHistory(input.learningHistory), learningHints: booleanRecord(input.learningHints),
     kindnessChoice: textValue(input.kindnessChoice, 200), kindnessNote: textValue(input.kindnessNote, 400), independenceChoice: textValue(input.independenceChoice, 200), independenceNote: textValue(input.independenceNote, 400),
     mood: textValue(input.mood, 8), goodThing: textValue(input.goodThing, 500), hardThing: textValue(input.hardThing, 500), dadNote: textValue(input.dadNote, 600), dadNotifiedText: textValue(input.dadNotifiedText, 600), dadNotifiedAt: textValue(input.dadNotifiedAt, 40),
     balance: money(input.balance), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), reserveStar: Boolean(input.reserveStar), decision: textValue(input.decision, 12),
@@ -173,9 +175,9 @@ export async function PUT(request: Request) {
     const body = await request.json() as { day?: string; progress?: ProgressPayload; stars?: number; closed?: boolean };
     const day = validDay(body.day ?? null);
     if (!day) return noStore({ error: "Некорректная дата" }, { status: 400 });
-    const payload = cleanPayload(body.progress ?? {});
+    const payload = cleanPayload(body.progress ?? {}, day);
     const fixedStars = payload.done.reduce((sum, id) => sum + (id === "math" ? 2 : id === "reading" ? 0 : 1), 0);
-    const readingStars = readingStarCount(getBook(payload.readingBook), payload.readingQuestionAnswers, payload.readingMinutes, payload.done.includes("reading"));
+    const readingStars = readingStarCount(payload.readingSession, payload.done.includes("reading"), day);
     const reserveStar = payload.reserveStar && fixedStars + readingStars === 9 ? 1 : 0;
     const stars = Math.min(10, fixedStars + readingStars + reserveStar);
     const savingsTransfer = Math.min(Math.floor(stars * 15 / 10) * 10, Number(payload.savingsTransfer) || 0);

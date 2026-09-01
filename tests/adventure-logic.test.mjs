@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { dailyContent } from "../app/daily-content.ts";
-import { BOOKS, activeQuestion, cleanRanges, continuousPage, isBookFinished, isReadingAnswerCorrect, mergeRanges, nextBook, readingStarCount } from "../app/books.ts";
+import { BOOKS, cleanBookReflections, cleanDailyReadingSession, cleanRanges, continuousPage, isBookFinished, isReadingAnswerCorrect, mergeRanges, nextBook, readingQuestionsForRange, readingStarCount } from "../app/books.ts";
 import { emptyLearningHistory, recordLearningAttempt } from "../app/learning-history.ts";
 
 test("daily tasks are stable for one day and differ on the next day", () => {
@@ -20,19 +20,19 @@ test("reading ranges merge and books open sequentially", () => {
   const merged = mergeRanges([], [{ from: 5, to: 20 }, { from: 21, to: 40 }], emerald);
   assert.deepEqual(merged, [{ from: 5, to: 40 }]);
   assert.equal(continuousPage(merged, emerald), 40);
-  assert.equal(activeQuestion(emerald, 39, []), null);
-  assert.equal(activeQuestion(emerald, 40, [])?.id, "em-1");
   assert.equal(isBookFinished(cleanRanges([{ from: 5, to: 288 }], emerald), emerald), true);
   assert.equal(nextBook("emerald")?.id, "urfin");
   assert.equal(nextBook("pippi"), null);
 });
 
-test("every book question has a bounded page range and an automatic correct answer", () => {
+test("every book has a short checklist of important reading milestones", () => {
   assert.equal(BOOKS.reduce((total, book) => total + book.questions.length, 0), 17);
   for (const book of BOOKS) {
     for (const question of book.questions) {
       assert.ok(question.fromPage >= book.firstPage);
       assert.ok(question.unlockPage >= question.fromPage && question.unlockPage <= book.lastPage);
+      assert.equal(["fact", "meaning"].includes(question.kind), true);
+      assert.ok(question.focus.length >= 10);
       assert.equal(question.options.includes(question.answer), true);
       assert.equal(isReadingAnswerCorrect(question, question.answer), true);
       assert.equal(isReadingAnswerCorrect(question, "другой ответ"), false);
@@ -40,18 +40,52 @@ test("every book question has a bounded page range and an automatic correct answ
   }
 });
 
-test("a book question remains available after a wrong choice and closes only after the correct one", () => {
-  const question = BOOKS[2].questions[0];
-  assert.equal(activeQuestion(BOOKS[2], question.unlockPage, ["wrong"])?.id, question.id);
-  assert.equal(activeQuestion(BOOKS[2], question.unlockPage, [question.id]), null);
+test("a reading range opens at most one important checklist question", () => {
+  const questions = readingQuestionsForRange(BOOKS[0], { from: 5, to: 30 });
+  assert.deepEqual(questions.map((question) => question.id), ["em-1-meaning"]);
+  assert.equal(readingQuestionsForRange(BOOKS[0], { from: 5, to: 29 }).length, 0);
+  assert.equal(readingQuestionsForRange(BOOKS[0], { from: 5, to: 30 }, questions.map((question) => question.id)).length, 0);
+  assert.equal(readingQuestionsForRange(BOOKS[0], { from: 5, to: 288 }).length, 1);
 });
 
-test("the third reading star requires a correct book answer", () => {
+test("only correct answers from the current day's reading add the third star", () => {
   const book = BOOKS[0];
-  const question = book.questions[0];
-  assert.equal(readingStarCount(book, { [question.id]: question.options[1] }, 30, true), 2);
-  assert.equal(readingStarCount(book, { [question.id]: question.answer }, 15, true), 3);
-  assert.equal(readingStarCount(book, { [question.id]: question.answer }, 30, false), 0);
+  const questions = readingQuestionsForRange(book, { from: 5, to: 30 });
+  const session = {
+    day: "2026-09-01", bookId: book.id, from: 5, to: 30, minutes: 30,
+    questionIds: questions.map((question) => question.id),
+    answers: Object.fromEntries(questions.map((question) => [question.id, question.answer])),
+    finished: true,
+  };
+  assert.equal(readingStarCount({ ...session, answers: { [questions[0].id]: "другой вариант" } }, true, session.day), 2);
+  assert.equal(readingStarCount(session, true, session.day), 3);
+  assert.equal(readingStarCount(session, true, "2026-09-02"), 2);
+  assert.equal(readingStarCount(session, false, session.day), 0);
+  assert.equal(readingStarCount(session, true, session.day), 3);
+});
+
+test("the server rebuilds the question link from the saved day, book and range", () => {
+  const cleaned = cleanDailyReadingSession({
+    day: "2026-09-01", bookId: "emerald", from: 5, to: 30, minutes: 20,
+    questionIds: ["em-1-fact"], answers: { "em-1-fact": "Ураган", injected: "answer" }, finished: true,
+  }, "2026-09-01");
+  assert.deepEqual(cleaned?.questionIds, ["em-1-meaning"]);
+  assert.deepEqual(Object.keys(cleaned?.answers ?? {}), ["em-1-meaning"]);
+  assert.equal(cleanDailyReadingSession({ ...cleaned, day: "2026-08-31" }, "2026-09-01"), null);
+});
+
+test("a completed book reflection gets one fixed personal bonus", () => {
+  const reflections = cleanBookReflections({
+    emerald: { text: "Для меня эта книга о дружбе.", savedAt: "2026-09-01T12:00:00.000Z", bonusStars: 999 },
+    urfin: { text: "Черновик без сохранения", bonusStars: 10 },
+  });
+  assert.deepEqual(reflections.emerald, {
+    text: "Для меня эта книга о дружбе.",
+    savedAt: "2026-09-01T12:00:00.000Z",
+    bonusStars: 10,
+    bonusAwardedAt: "2026-09-01T12:00:00.000Z",
+  });
+  assert.equal(reflections.urfin?.bonusStars, 0);
 });
 
 test("every learning check keeps the first and following answers per question", () => {

@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
-import { activeQuestion, BOOKS, cleanRanges, continuousPage, getBook, hasCorrectReadingAnswer as hasCorrectBookAnswer, isBookFinished, isReadingAnswerCorrect, mergeRanges, nextBook, readingStarCount, type BookId, type BookProgress } from "./books";
+import { BOOKS, cleanBookReflections, cleanRanges, continuousPage, getBook, getReadingQuestion, isBookFinished, isCurrentReadingCorrect, isReadingAnswerCorrect, mergeRanges, nextBook, readingQuestionsForRange, readingStarCount, type BookId, type BookProgress, type BookReflections, type DailyReadingSession } from "./books";
 import { dailyContent } from "./daily-content";
 import { emptyLearningHistory, recordLearningAttempt, type LearningHistory, type LearningSubject } from "./learning-history";
 import { isAnswerCorrect, type LearningQuestion } from "./learning-system";
@@ -23,7 +23,9 @@ type Progress = {
   readingAnswer: string;
   readingBook: BookId;
   bookProgress: BookProgress;
+  bookReflections: BookReflections;
   readingQuestionAnswers: Record<string, string>;
+  readingSession: DailyReadingSession | null;
   mathAnswers: string[];
   mathAttempts: number;
   englishAnswers: string[];
@@ -74,7 +76,7 @@ const missions: Mission[] = [
 ];
 
 const emptyProgress: Progress = {
-  done: [], morningChecks: [], readingStart: "", readingEnd: "", readingMinutes: 15, readingAnswer: "", readingBook: "emerald", bookProgress: {}, readingQuestionAnswers: {},
+  done: [], morningChecks: [], readingStart: "", readingEnd: "", readingMinutes: 15, readingAnswer: "", readingBook: "emerald", bookProgress: {}, bookReflections: {}, readingQuestionAnswers: {}, readingSession: null,
   mathAnswers: ["", "", "", "", ""], mathAttempts: 0, englishAnswers: ["", "", "", "", "", ""], englishAttempts: 0, learningHistory: emptyLearningHistory(), learningHints: {}, orderChecks: [],
   kindnessChoice: "", kindnessNote: "", independenceChoice: "", independenceNote: "", mood: "", goodThing: "", hardThing: "", dadNote: "", dadNotifiedText: "", dadNotifiedAt: "",
   balance: 0, goalTitle: "", goalAmount: 0, reserveStar: false, decision: "",
@@ -112,15 +114,24 @@ export default function Adventure() {
   const mathQuestions = learningAssignments?.math ?? [];
   const englishQuestions = learningAssignments?.english ?? [];
   const orderItems = useMemo(() => content.order.map((label, index) => [`daily-${index}`, label]), [content.order]);
-  const readingBook = getBook(progress.readingBook);
+  const todayReading = progress.readingSession?.day === day ? progress.readingSession : null;
+  const readingBook = getBook(todayReading?.bookId ?? progress.readingBook);
   const savedReadingRanges = cleanRanges(progress.bookProgress?.[readingBook.id], readingBook);
   const confirmedReadingPage = continuousPage(savedReadingRanges, readingBook);
   const answeredReadingQuestions = readingBook.questions.filter((question) => isReadingAnswerCorrect(question, progress.readingQuestionAnswers?.[question.id])).map((question) => question.id);
-  const hasCorrectReadingAnswer = hasCorrectBookAnswer(readingBook, progress.readingQuestionAnswers);
-  const unlockedQuestion = hasCorrectReadingAnswer ? null : activeQuestion(readingBook, confirmedReadingPage, answeredReadingQuestions);
-  const completedBooks = BOOKS.filter((book) => isBookFinished(cleanRanges(progress.bookProgress?.[book.id], book), book)).length;
+  const sessionQuestions = todayReading?.questionIds.flatMap((questionId) => {
+    const question = getReadingQuestion(readingBook, questionId);
+    return question ? [question] : [];
+  }) ?? [];
+  const currentReadingCorrect = isCurrentReadingCorrect(todayReading, day);
+  const bookFinished = isBookFinished(savedReadingRanges, readingBook);
+  const bookReflection = progress.bookReflections?.[readingBook.id] ?? { text: "", savedAt: "", bonusStars: 0, bonusAwardedAt: "" };
+  const showBookReflection = bookFinished && (!todayReading || todayReading.finished);
+  const needsBookReflection = showBookReflection && !bookReflection.savedAt;
+  const completedBooks = BOOKS.filter((book) => isBookFinished(cleanRanges(progress.bookProgress?.[book.id], book), book) && Boolean(progress.bookReflections?.[book.id]?.savedAt)).length;
+  const bookBonusStars = Object.values(progress.bookReflections ?? {}).reduce((total, reflection) => total + (reflection?.bonusStars === 10 ? 10 : 0), 0);
 
-  const readingStars = readingStarCount(readingBook, progress.readingQuestionAnswers, progress.readingMinutes, progress.done.includes("reading"));
+  const readingStars = readingStarCount(todayReading, progress.done.includes("reading"), day);
   const earnedStars = (() => {
     const fixed = progress.done.reduce((sum, id) => sum + (id === "math" ? 2 : id === "reading" ? 0 : 1), 0);
     return Math.min(10, fixed + readingStars + (progress.reserveStar && fixed + readingStars === 9 ? 1 : 0));
@@ -139,7 +150,7 @@ export default function Adventure() {
       if (learning.math?.length !== 5 || learning.english?.length !== 6) throw new Error("learning-load");
       setLearningAssignments({ math: learning.math, english: learning.english });
       const loadedProgress = { ...emptyProgress, ...(data.progress ?? {}), done: (data.progress?.done ?? []) as MissionId[] };
-      setProgress({ ...loadedProgress, bookProgress: loadedProgress.bookProgress ?? {}, readingQuestionAnswers: loadedProgress.readingQuestionAnswers ?? {}, learningHistory: loadedProgress.learningHistory ?? emptyLearningHistory(), learningHints: loadedProgress.learningHints ?? {} });
+      setProgress({ ...loadedProgress, bookProgress: loadedProgress.bookProgress ?? {}, bookReflections: cleanBookReflections(loadedProgress.bookReflections), readingQuestionAnswers: loadedProgress.readingQuestionAnswers ?? {}, learningHistory: loadedProgress.learningHistory ?? emptyLearningHistory(), learningHints: loadedProgress.learningHints ?? {} });
       setClosed(Boolean(data.closed)); setTodayLimit(Number(data.todayLimit) || 100); setSaveState("saved"); setLoaded(true);
     }).catch(() => setSaveState("offline"));
   }, [day]);
@@ -259,16 +270,64 @@ export default function Adventure() {
   }
   function complete(id: MissionId, message: string, stars = 1) {
     if (closed) return;
-    setProgress((current) => {
-      if (id !== "reading") return { ...current, done: current.done.includes(id) ? current.done : [...current.done, id] };
-      const book = getBook(current.readingBook);
-      const existing = cleanRanges(current.bookProgress?.[book.id], book);
-      const merged = mergeRanges(existing, [{ from: Number(current.readingStart), to: Number(current.readingEnd) }], book);
-      return { ...current, bookProgress: { ...current.bookProgress, [book.id]: merged }, done: current.done.includes(id) ? current.done : [...current.done, id] };
-    });
+    setProgress((current) => ({ ...current, done: current.done.includes(id) ? current.done : [...current.done, id] }));
     setCelebration({ id, text: message, stars });
     navigator.vibrate?.([35, 30, 75]);
     window.setTimeout(() => { setCelebration(null); goTo("home"); }, 2400);
+  }
+  function beginReading() {
+    if (closed || todayReading || !readingReady) return;
+    const from = Number(progress.readingStart);
+    const to = Number(progress.readingEnd);
+    const questions = readingQuestionsForRange(readingBook, { from, to }, answeredReadingQuestions);
+    setProgress((current) => {
+      const existing = cleanRanges(current.bookProgress?.[readingBook.id], readingBook);
+      const merged = mergeRanges(existing, [{ from, to }], readingBook);
+      return {
+        ...current,
+        done: current.done.includes("reading") ? current.done : [...current.done, "reading"],
+        bookProgress: { ...current.bookProgress, [readingBook.id]: merged },
+        readingSession: { day, bookId: readingBook.id, from, to, minutes: current.readingMinutes, questionIds: questions.map((question) => question.id), answers: {}, finished: false },
+      };
+    });
+  }
+  function answerReadingQuestion(questionId: string, answer: string) {
+    if (closed) return;
+    setProgress((current) => {
+      const session = current.readingSession;
+      if (!session || session.day !== day || !session.questionIds.includes(questionId)) return current;
+      const question = getReadingQuestion(getBook(session.bookId), questionId);
+      const readingQuestionAnswers = isReadingAnswerCorrect(question, answer)
+        ? { ...current.readingQuestionAnswers, [questionId]: answer }
+        : current.readingQuestionAnswers;
+      return { ...current, readingQuestionAnswers, readingSession: { ...session, answers: { ...session.answers, [questionId]: answer } } };
+    });
+  }
+  function finishReading() {
+    if (closed || !todayReading || todayReading.finished) return;
+    const finishedSession = { ...todayReading, finished: true };
+    const stars = readingStarCount(finishedSession, true, day);
+    setProgress((current) => ({ ...current, readingSession: current.readingSession?.day === day ? { ...current.readingSession, finished: true } : current.readingSession }));
+    setCelebration({ id: "reading", text: currentReadingCorrect ? "Бонусная звезда открыта" : "Чтение на сегодня завершено", stars });
+    navigator.vibrate?.([35, 30, 75]);
+    window.setTimeout(() => { setCelebration(null); if (!bookFinished) goTo("home"); }, 2400);
+  }
+  function updateBookReflection(text: string) {
+    setProgress((current) => ({
+      ...current,
+      bookReflections: { ...current.bookReflections, [readingBook.id]: { text: text.slice(0, 3000), savedAt: "", bonusStars: 0, bonusAwardedAt: "" } },
+    }));
+  }
+  function saveBookReflection() {
+    if (closed || !bookReflection.text.trim()) return;
+    const awardedAt = new Date().toISOString();
+    setProgress((current) => ({
+      ...current,
+      bookReflections: { ...current.bookReflections, [readingBook.id]: { text: bookReflection.text.trim(), savedAt: awardedAt, bonusStars: 10, bonusAwardedAt: awardedAt } },
+    }));
+    setCelebration({ id: "reading", text: "Папин бонус за книжную заметку", stars: 10 });
+    navigator.vibrate?.([35, 30, 75]);
+    window.setTimeout(() => setCelebration(null), 2400);
   }
   function openSection(section: NavSection) {
     if (section === "today") {
@@ -293,8 +352,9 @@ export default function Adventure() {
 
   const mathAllCorrect = mathQuestions.every((question, index) => isAnswerCorrect({ answer: question.answer }, progress.mathAnswers[index] ?? ""));
   const englishAllCorrect = englishQuestions.every((question, index) => isAnswerCorrect({ answer: question.answer }, progress.englishAnswers[index] ?? ""));
-  const readingReady = Boolean(progress.readingStart && progress.readingEnd && Number(progress.readingEnd) >= Number(progress.readingStart) && Number(progress.readingStart) >= Math.max(readingBook.firstPage, confirmedReadingPage + 1) && Number(progress.readingEnd) <= readingBook.lastPage);
-  const readingPotential = !readingReady ? 0 : progress.readingMinutes >= 20 ? 2 : 1;
+  const readingReady = Boolean(!todayReading && progress.readingStart && progress.readingEnd && Number(progress.readingEnd) >= Number(progress.readingStart) && Number(progress.readingStart) >= Math.max(readingBook.firstPage, confirmedReadingPage + 1) && Number(progress.readingEnd) <= readingBook.lastPage);
+  const draftReadingQuestions = readingReady ? readingQuestionsForRange(readingBook, { from: Number(progress.readingStart), to: Number(progress.readingEnd) }, answeredReadingQuestions) : [];
+  const readingPotential = todayReading ? readingStarCount(todayReading, true, day) : !readingReady ? 0 : progress.readingMinutes >= 20 ? 2 : 1;
 
   if (view !== "home" && view !== "wallet" && view !== "journal" && view !== "parent") {
     const mission = missions.find((item) => item.id === view)!;
@@ -309,28 +369,40 @@ export default function Adventure() {
             <ActionButton disabled={progress.morningChecks.length !== morningItems.length} onClick={() => complete("morning", "Утренний запуск завершён")}>Завершить утренний запуск</ActionButton>
           </>}
           {view === "reading" && <>
-            <Intro title={readingBook.title} text="Продолжай с сохранённой страницы. Следующая книга откроется только после завершения этой." />
-            <div className="book-status"><span>Книга {BOOKS.findIndex((book) => book.id === readingBook.id) + 1} из {BOOKS.length} · завершено {completedBooks}</span><strong>{confirmedReadingPage < readingBook.firstPage ? `Начни со страницы ${readingBook.firstPage}` : `Прочитано подряд до страницы ${confirmedReadingPage}`}</strong><small>стр. {readingBook.firstPage}–{readingBook.lastPage} · ISBN {readingBook.isbn}</small></div>
-            <div className="reading-levels">{[{m:15,s:1,t:"Разминка"},{m:20,s:2,t:"Исследователь"},{m:30,s:2,t:"Книжный герой"}].map((level) => <button key={level.m} className={progress.readingMinutes === level.m ? "selected" : ""} onClick={() => patch({ readingMinutes: level.m })}><strong>{level.m} минут</strong><span>{level.t}</span><b>{level.s} ⭐</b></button>)}</div>
-            <div className="field-pair"><label><span>Начала со страницы</span><input inputMode="numeric" min={Math.max(readingBook.firstPage, confirmedReadingPage + 1)} max={readingBook.lastPage} value={progress.readingStart} onChange={(e) => patch({ readingStart: e.target.value })} placeholder={String(Math.max(readingBook.firstPage, confirmedReadingPage + 1))} /></label><label><span>Закончила на странице</span><input inputMode="numeric" min={readingBook.firstPage} max={readingBook.lastPage} value={progress.readingEnd} onChange={(e) => patch({ readingEnd: e.target.value })} placeholder={`до ${readingBook.lastPage}`} /></label></div>
-            {unlockedQuestion && <section className="reading-question"><span>Вопрос по страницам {unlockedQuestion.fromPage}–{unlockedQuestion.unlockPage}</span><strong>{unlockedQuestion.prompt}</strong><div className="reading-options">{unlockedQuestion.options.map((option) => <button key={option} className={progress.readingQuestionAnswers[unlockedQuestion.id] === option ? "selected" : ""} onClick={() => patch({ readingQuestionAnswers: { ...progress.readingQuestionAnswers, [unlockedQuestion.id]: option } })}>{option}</button>)}</div>{progress.readingQuestionAnswers[unlockedQuestion.id] && !isReadingAnswerCorrect(unlockedQuestion, progress.readingQuestionAnswers[unlockedQuestion.id]) && <small>Пока не совпало. Вспомни этот отрывок и попробуй ещё раз.</small>}</section>}
-            {hasCorrectReadingAnswer && <div className="reading-answer-ok"><strong>Ответ принят · +1 ⭐ за понимание прочитанного</strong><span>Всего за чтение сегодня: 3 ⭐</span></div>}
-            {isBookFinished(savedReadingRanges, readingBook) && nextBook(readingBook.id) && <button className="next-book" onClick={() => patch({ readingBook: nextBook(readingBook.id)!.id, readingStart: "", readingEnd: "", readingAnswer: "" })}>Начать следующую книгу: «{nextBook(readingBook.id)!.title}» →</button>}
-            <div className="live-result"><span>{hasCorrectReadingAnswer ? "Ответ уже добавил третью звезду" : "Сейчас открывается"}</span><strong>{hasCorrectReadingAnswer ? 3 : readingPotential} из 3 ⭐</strong>{!hasCorrectReadingAnswer && readingPotential >= 2 && <small>Третья звезда — за верный ответ на вопрос по прочитанным страницам.</small>}</div>
-            <ActionButton disabled={!readingReady} onClick={() => complete("reading", "Страницы добавлены в книжную историю", readingPotential)}>Сохранить прочитанные страницы</ActionButton>
+            <Intro title={readingBook.title} text={needsBookReflection ? "Книга дочитана. Теперь можно сохранить свою личную книжную заметку." : todayReading ? "Страницы и звёзды за чтение уже сохранены. Иногда здесь появляется один вопрос о главной мысли отрывка." : "Укажи прочитанные сегодня страницы. Вопрос появится только на важной смысловой точке книги — не после каждого чтения."} />
+            <div className="book-status"><span>Книга {BOOKS.findIndex((book) => book.id === readingBook.id) + 1} из {BOOKS.length} · завершено {completedBooks}</span><strong>{confirmedReadingPage < readingBook.firstPage ? `Начни со страницы ${readingBook.firstPage}` : `Прочитано подряд до страницы ${confirmedReadingPage}`}</strong></div>
+            <details className="book-details"><summary>О книге</summary><span>Страницы издания: {readingBook.firstPage}–{readingBook.lastPage}</span><span>ISBN {readingBook.isbn}</span></details>
+            {!todayReading && !needsBookReflection && <>
+              <div className="reading-levels">{[{m:15,s:1,t:"Разминка"},{m:20,s:2,t:"Исследователь"},{m:30,s:2,t:"Книжный герой"}].map((level) => <button key={level.m} className={progress.readingMinutes === level.m ? "selected" : ""} onClick={() => patch({ readingMinutes: level.m })}><strong>{level.m} мин</strong><span>{level.t}</span><b>{level.s} ⭐</b></button>)}</div>
+              <div className="field-pair"><label><span>Начала со страницы</span><input inputMode="numeric" min={Math.max(readingBook.firstPage, confirmedReadingPage + 1)} max={readingBook.lastPage} value={progress.readingStart} onChange={(e) => patch({ readingStart: e.target.value })} placeholder={String(Math.max(readingBook.firstPage, confirmedReadingPage + 1))} /></label><label><span>Закончила на странице</span><input inputMode="numeric" min={readingBook.firstPage} max={readingBook.lastPage} value={progress.readingEnd} onChange={(e) => patch({ readingEnd: e.target.value })} placeholder={`до ${readingBook.lastPage}`} /></label></div>
+              {readingReady && <p className="reading-next-step">Страницы сохранятся сразу. Дальше будет {draftReadingQuestions.length === 1 ? "один короткий вопрос о главной мысли" : "спокойное завершение чтения без вопроса"}.</p>}
+              <div className="live-result"><span>Уже за чтение</span><strong>{readingPotential} ⭐</strong>{readingPotential >= 1 && <small>На смысловой точке можно открыть ещё одну бонусную звезду.</small>}</div>
+              <ActionButton disabled={!readingReady} onClick={beginReading}>Сохранить прочитанные страницы</ActionButton>
+            </>}
+            {todayReading && <>
+              <div className="reading-saved-range"><span>Сегодня сохранено</span><strong>страницы {todayReading.from}–{todayReading.to} · {todayReading.minutes} минут</strong></div>
+              {sessionQuestions.map((question) => <section className="reading-question" key={question.id}><span>Главная мысль этого отрывка</span><small className="reading-focus">В книжном чек-листе: {question.focus}</small><strong>{question.prompt}</strong><div className="reading-options">{question.options.map((option) => <button disabled={todayReading.finished} key={option} className={todayReading.answers[question.id] === option ? "selected" : ""} onClick={() => answerReadingQuestion(question.id, option)}>{option}</button>)}</div>{todayReading.answers[question.id] && !isReadingAnswerCorrect(question, todayReading.answers[question.id]) && <small>Страницы и звёзды за чтение уже сохранены. Можно спокойно выбрать другой вариант.</small>}</section>)}
+              {sessionQuestions.length === 0 && <Feedback>Страницы и звёзды за чтение уже сохранены. В этом отрывке нет новой контрольной точки — сегодня вопрос не нужен.</Feedback>}
+              {currentReadingCorrect && <div className="reading-answer-ok"><strong>Главная мысль найдена · бонусная ⭐ открыта</strong><span>Это дополнительная награда к уже сохранённому чтению.</span></div>}
+              <div className="live-result"><span>{currentReadingCorrect ? "Бонусная звезда открыта" : "За чтение уже сохранено"}</span><strong>{readingPotential} ⭐</strong>{!currentReadingCorrect && sessionQuestions.length > 0 && <small>Если захочется, можно выбрать ответ или завершить чтение сейчас.</small>}</div>
+              {!todayReading.finished && <ActionButton onClick={finishReading}>Завершить чтение</ActionButton>}
+              {todayReading.finished && <div className="reading-finished"><strong>Чтение на сегодня завершено</strong><span>{readingPotential} ⭐ сохранено в результате дня</span></div>}
+            </>}
+            {showBookReflection && <section className="book-reflection"><span>Книжная заметка · без оценок</span><h2>Василиса, вот ты и дочитала книгу «{readingBook.title}»</h2><p>Поделись своими впечатлениями: как ты поняла эту историю, что хочется отметить, что понравилось или расстроило. Текст никто не проверяет по образцу — важны только твои мысли.</p><div className="dad-book-bonus"><b>Папин персональный бонус: +10 ⭐</b><small>За завершённую книгу и твою собственную заметку — содержание текста не оценивается.</small></div><label><span>Мои мысли о книге</span><textarea disabled={Boolean(bookReflection.savedAt) || closed} value={bookReflection.text} onChange={(event) => updateBookReflection(event.target.value)} maxLength={3000} placeholder="Можно начать так: «Для меня эта книга о…»" /></label>{!bookReflection.savedAt ? <button className="primary-action" disabled={!bookReflection.text.trim() || closed} onClick={saveBookReflection}>Сохранить заметку и получить +10 ⭐ от папы</button> : <div className="book-reflection-saved"><strong>Твоя книжная заметка сохранена · +10 ⭐ от папы</strong><span>Это твой личный взгляд на историю — он не оценивается.</span></div>}</section>}
+            {showBookReflection && Boolean(bookReflection.savedAt) && nextBook(readingBook.id) && <button className="next-book" onClick={() => { patch({ readingBook: nextBook(readingBook.id)!.id, readingStart: "", readingEnd: "", readingAnswer: "" }); goTo("home"); }}>Следующая книга: «{nextBook(readingBook.id)!.title}» →</button>}
           </>}
           {view === "math" && <>
-            <Intro title="Введи код экспедиции" text="Реши пять заданий. Ошибка ничего не отнимает — можно исправлять сколько нужно." />
+            <Intro title="Введи код экспедиции" text="Решай в своём темпе. Ответы можно менять столько раз, сколько захочется." />
             {!learningAssignments && saveState === "offline" && <Feedback>Учебные задания пока не загрузились. Проверь связь и обнови страницу — ответы не потеряются.</Feedback>}
-            <div className="math-list">{mathQuestions.map((question, index) => { const value = progress.mathAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, value); return <label className={mathChecked ? ok ? "correct" : "wrong" : ""} key={question.id}><span><small>Задание {index + 1} · {question.role === "reinforcement" ? "закрепление" : question.role === "stretch" ? "небольшой вызов" : "текущий уровень"}</small>{question.label}</span><input inputMode="numeric" value={value} onFocus={() => markQuestionStarted(question.id)} onChange={(e) => { markQuestionStarted(question.id); setMathChecked(false); setAnswer("mathAnswers", index, e.target.value); }} placeholder="Ответ" /><div className="learning-assist">{Boolean(question.hint) && <button type="button" className="learning-hint-button" onClick={(event) => { event.preventDefault(); showLearningHint(question.id); }}>Подсказка</button>}{progress.learningHints[question.id] && <em className="learning-hint-text">{question.hint}</em>}{mathChecked && <b>{ok ? "Верно" : "Проверь"}</b>}</div></label>; })}</div>
-            {mathChecked && !mathAllCorrect && <Feedback>Не всё сошлось. Исправь отмеченные ответы — попытки не ограничены.</Feedback>}
+            <div className="math-list">{mathQuestions.map((question, index) => { const value = progress.mathAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, value); return <label className={mathChecked ? ok ? "correct" : "retry" : ""} key={question.id}><span><small>Задание {index + 1} · {question.role === "reinforcement" ? "закрепление" : question.role === "stretch" ? "небольшой вызов" : "текущий уровень"}</small>{question.label}</span><input inputMode="numeric" value={value} onFocus={() => markQuestionStarted(question.id)} onChange={(e) => { markQuestionStarted(question.id); setMathChecked(false); setAnswer("mathAnswers", index, e.target.value); }} placeholder="Ответ" /><div className="learning-assist">{Boolean(question.hint) && <button type="button" className="learning-hint-button" onClick={(event) => { event.preventDefault(); showLearningHint(question.id); }}>Подсказка</button>}{progress.learningHints[question.id] && <em className="learning-hint-text">{question.hint}</em>}{mathChecked && <b>{ok ? "Получилось" : "Можно ещё раз"}</b>}</div></label>; })}</div>
+            {mathChecked && !mathAllCorrect && <Feedback>Часть ответов уже получилась. Остальные можно спокойно посмотреть ещё раз — подсказки рядом.</Feedback>}
             <ActionButton disabled={!learningAssignments || progress.mathAnswers.some((item) => !item) || progress.done.includes("math")} onClick={() => checkLearning("math")}>{mathChecked && mathAllCorrect ? "Шифр открыт!" : "Проверить ответы"}</ActionButton>
           </>}
           {view === "english" && <>
             <Intro title="Собери словарь разведчика" text="Выполни шесть коротких заданий: выбирай ответы или пиши английские слова и фразы." />
             {!learningAssignments && saveState === "offline" && <Feedback>Учебные задания пока не загрузились. Проверь связь и обнови страницу — ответы не потеряются.</Feedback>}
-            <div className="english-list">{englishQuestions.map((question, index) => { const chosen = progress.englishAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, chosen); const isInput = "kind" in question && question.kind === "input"; return <article className={englishChecked ? ok ? "correct" : "wrong" : ""} key={question.id}><div className="word-prompt"><strong>{question.icon}</strong><span>{question.label}</span></div>{isInput ? <input className="english-text-answer" value={chosen} onFocus={() => markQuestionStarted(question.id)} onChange={(event) => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, event.target.value); }} placeholder="Напиши ответ" /> : <div className="word-options">{question.options?.map((option) => <button className={chosen === option ? "chosen" : ""} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, option); }} key={option}>{option}</button>)}</div>}{"hint" in question && Boolean(question.hint) && <button type="button" className="learning-hint-button" onClick={() => showLearningHint(question.id)}>Подсказка</button>}{progress.learningHints[question.id] && "hint" in question && <em className="learning-hint-text">{String(question.hint)}</em>}{englishChecked && <small>{ok ? "Точно!" : "Попробуй ещё раз"}</small>}</article>; })}</div>
-            {englishChecked && !englishAllCorrect && <Feedback>Есть неточности. Посмотри на подсказки и попробуй ещё раз.</Feedback>}
+            <div className="english-list">{englishQuestions.map((question, index) => { const chosen = progress.englishAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, chosen); const isInput = "kind" in question && question.kind === "input"; return <article className={englishChecked ? ok ? "correct" : "retry" : ""} key={question.id}><div className="word-prompt"><strong>{question.icon}</strong><span>{question.label}</span></div>{isInput ? <input className="english-text-answer" value={chosen} onFocus={() => markQuestionStarted(question.id)} onChange={(event) => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, event.target.value); }} placeholder="Напиши ответ" /> : <div className="word-options">{question.options?.map((option) => <button className={chosen === option ? "chosen" : ""} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, option); }} key={option}>{option}</button>)}</div>}{"hint" in question && Boolean(question.hint) && <button type="button" className="learning-hint-button" onClick={() => showLearningHint(question.id)}>Подсказка</button>}{progress.learningHints[question.id] && "hint" in question && <em className="learning-hint-text">{String(question.hint)}</em>}{englishChecked && <small>{ok ? "Получилось!" : "Можно ещё раз"}</small>}</article>; })}</div>
+            {englishChecked && !englishAllCorrect && <Feedback>Часть ответов уже готова. Остальные можно спокойно посмотреть ещё раз — подсказки рядом.</Feedback>}
             <ActionButton disabled={!learningAssignments || progress.englishAnswers.some((item) => !item) || progress.done.includes("english")} onClick={() => checkLearning("english")}>Проверить всю разведку</ActionButton>
           </>}
           {view === "order" && <>
@@ -385,12 +457,12 @@ export default function Adventure() {
       <section className="weekly-card"><div><span>Большая миссия недели</span><h2>Собери 5 солнечных фрагментов</h2><p>Фрагмент открывается за день с 7 или более звёздами. В конце недели выбери одно большое семейное приключение.</p></div><div className="weekly-fragments" aria-label={`${Math.min(5, weeklyFragments)} из 5 фрагментов`}>{Array.from({length:5},(_,index)=><i className={index<weeklyFragments?"filled":""} key={index}>★</i>)}<strong>{Math.min(5, weeklyFragments)}/5</strong></div></section>
 
       <section className="route-section">
-        <div className="route-heading"><div><p>Маршрут на сегодня</p><h2>Миссии дня</h2></div><span>Можно идти в любом порядке · ошибки не отнимают звёзды</span></div>
-        <div className="route-grid">{missions.map((mission) => { const done = progress.done.includes(mission.id); const note = mission.id === "reading" ? `${readingBook.title} · завершено книг: ${completedBooks}` : mission.note; return <article className={`route-card ${mission.accent} ${done ? "done" : ""}`} key={mission.id}><button className="route-main" onClick={() => goTo(mission.id)}><span className="mission-number">{mission.index}</span><span className="mission-symbol"><MissionIcon id={mission.id}/></span><span className="route-copy"><small>{mission.kicker}</small><strong>{mission.title}</strong><p>{note}</p></span><span className="reward-pill">{done ? "Готово" : mission.reward}</span></button></article>; })}</div>
+        <div className="route-heading"><div><p>Маршрут на сегодня</p><h2>Миссии дня</h2></div><span>Можно идти в любом порядке · каждая попытка помогает двигаться дальше</span></div>
+        <div className="route-grid">{missions.map((mission) => { const done = progress.done.includes(mission.id); const note = mission.id === "reading" ? `${readingBook.title} · завершено книг: ${completedBooks} · папины бонусы: ${bookBonusStars} ⭐` : mission.note; return <article className={`route-card ${mission.accent} ${done ? "done" : ""}`} key={mission.id}><button className="route-main" onClick={() => goTo(mission.id)}><span className="mission-number">{mission.index}</span><span className="mission-symbol"><MissionIcon id={mission.id}/></span><span className="route-copy"><small>{mission.kicker}</small><strong>{mission.title}</strong><p>{note}</p></span><span className="reward-pill">{done ? "Готово" : mission.reward}</span></button></article>; })}</div>
       </section>
 
       <section className="bottom-cards">
-        <button id="journal-anchor" className="journal-card" onClick={() => goTo("journal")}><span>Личное пространство</span><strong>Мой день</strong><p>Что получилось, что было сложно и что рассказать папе.</p><i>Открыть дневник <b>→</b></i></button>
+        <button id="journal-anchor" className="journal-card" onClick={() => goTo("journal")}><span>Личное пространство</span><strong>Мой день</strong><p>Что получилось, что было непросто и что рассказать папе.</p><i>Открыть дневник <b>→</b></i></button>
         <button id="parent-anchor" className={`parent-card ${closed ? "closed" : ""}`} onClick={() => goTo("parent")}><span>Для взрослых</span><strong>{closed ? "День подтверждён" : "Проверка дня"}</strong><p>{closed ? "Все результаты сохранены. День можно открыть для исправления." : "Мама подтверждает бытовые миссии и закрывает день вечером."}</p><i>{closed ? `${earnedStars}/10 ⭐ · ${tomorrowLimit} ₽ завтра` : "Перейти к проверке →"}</i></button>
       </section>
 
@@ -486,7 +558,7 @@ function JournalScreen({ day, progress, patch, history, historyLoading, dadConta
     <ScreenTop title="Мой день" subtitle={isToday ? "Мысли, настроение и маленькие победы" : dayLabel(selectedDay)} icon="journal" onBack={onBack}/>
     {closed && isToday && <DayLockedBanner onUnlock={onUnlock}/>} 
     <section className="journal-history"><div className="history-heading"><div><span>Дневник Василисы</span><h2>История дней</h2></div><small>{historyLoading ? "Загружаю…" : `${Math.max(history.length, 1)} дней сохранено`}</small></div><div className="history-strip"><button className={isToday ? "selected" : ""} onClick={() => setSelectedDay(day)}><b>Сегодня</b><span>{new Date(`${day}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</span></button>{history.filter((item) => item.day !== day).slice(0, 30).map((item) => <button className={selectedDay === item.day ? "selected" : ""} onClick={() => setSelectedDay(item.day)} key={item.day}><b>{new Date(`${item.day}T12:00:00`).toLocaleDateString("ru-RU", { weekday: "short" })}</b><span>{new Date(`${item.day}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</span><i>{item.stars} ⭐</i></button>)}</div></section>
-    <section className={`journal-sheet ${isToday ? "" : "history-view"}`}><div className="journal-title"><span className="journal-emblem"><NavIcon name="journal"/></span><div><small>{isToday ? "Сегодня" : "Запись из истории"}</small><h1>{isToday ? "Как ты сегодня?" : dayLabel(selectedDay)}</h1></div></div><div className="mood-row">{moods.map(mood=><button disabled={!isToday} aria-pressed={shown.mood===mood.id} aria-label={mood.label} title={mood.label} className={shown.mood===mood.id?"selected":""} onClick={()=>patch({mood:mood.id})} key={mood.id}><MoodIcon mood={mood.id}/><span>{mood.label}</span></button>)}</div>{isToday ? <><label><span>Что сегодня получилось?</span><textarea value={shown.goodThing} onChange={e=>patch({goodThing:e.target.value})} placeholder="Даже маленькая победа считается"/></label><label><span>Что сегодня не получилось или было сложно?</span><textarea value={shown.hardThing} onChange={e=>patch({hardThing:e.target.value})} placeholder="Можно написать честно — за это не ругают"/></label><label><span>Есть чем поделиться с папой?</span><textarea value={shown.dadNote} onChange={e=>{patch({dadNote:e.target.value});setNotifyState("idle");}} placeholder="Напиши просьбу, новость или просто важную мысль"/></label><button className="dad-notify-button" disabled={!shown.dadNote.trim() || notifyState === "sending" || shown.dadNotifiedText === shown.dadNote.trim()} onClick={sendNote}><ContactMark kind="vk"/><span><b>{notifyState === "sending" ? "Отправляю…" : shown.dadNotifiedText === shown.dadNote.trim() || notifyState === "sent" ? "Папа получил сообщение" : "Поделиться с папой"}</b><small>{notifyState === "setup" ? "Записано. Уведомления VK нужно один раз подключить" : notifyState === "error" ? "Не отправилось — попробуй ещё раз" : "Уведомление придёт папе сразу"}</small></span></button><DadContact contacts={dadContacts}/><button className="primary-action" onClick={onBack}>Сохранить мой день</button></> : <div className="history-sections"><HistoryBlock icon="✓" title="Что получилось" text={shown.goodThing}/><HistoryBlock icon="↗" title="Что не получилось" text={shown.hardThing}/><HistoryBlock icon="♥" title="Просьбы и сообщения папе" text={shown.dadNote}/><div className="history-summary"><span>{selectedRecord?.stars ?? 0} ⭐</span><span>{selectedRecord?.closed ? "Подтверждено мамой" : "День не закрыт"}</span></div></div>}</section>
+    <section className={`journal-sheet ${isToday ? "" : "history-view"}`}><div className="journal-title"><span className="journal-emblem"><NavIcon name="journal"/></span><div><small>{isToday ? "Сегодня" : "Запись из истории"}</small><h1>{isToday ? "Как ты сегодня?" : dayLabel(selectedDay)}</h1></div></div><div className="mood-row">{moods.map(mood=><button disabled={!isToday} aria-pressed={shown.mood===mood.id} aria-label={mood.label} title={mood.label} className={shown.mood===mood.id?"selected":""} onClick={()=>patch({mood:mood.id})} key={mood.id}><MoodIcon mood={mood.id}/><span>{mood.label}</span></button>)}</div>{isToday ? <><label><span>Что сегодня получилось?</span><textarea value={shown.goodThing} onChange={e=>patch({goodThing:e.target.value})} placeholder="Даже маленькая победа считается"/></label><label><span>Что сегодня было непросто?</span><textarea value={shown.hardThing} onChange={e=>patch({hardThing:e.target.value})} placeholder="Можно записать то, что хочется попробовать по-другому"/></label><label><span>Есть чем поделиться с папой?</span><textarea value={shown.dadNote} onChange={e=>{patch({dadNote:e.target.value});setNotifyState("idle");}} placeholder="Напиши просьбу, новость или просто важную мысль"/></label><button className="dad-notify-button" disabled={!shown.dadNote.trim() || notifyState === "sending" || shown.dadNotifiedText === shown.dadNote.trim()} onClick={sendNote}><ContactMark kind="vk"/><span><b>{notifyState === "sending" ? "Отправляю…" : shown.dadNotifiedText === shown.dadNote.trim() || notifyState === "sent" ? "Папа получил сообщение" : "Поделиться с папой"}</b><small>{notifyState === "setup" ? "Записано. Уведомления VK нужно один раз подключить" : notifyState === "error" ? "Не отправилось — попробуй ещё раз" : "Уведомление придёт папе сразу"}</small></span></button><DadContact contacts={dadContacts}/><button className="primary-action" onClick={onBack}>Сохранить мой день</button></> : <div className="history-sections"><HistoryBlock icon="✓" title="Что получилось" text={shown.goodThing}/><HistoryBlock icon="↗" title="Что было непросто" text={shown.hardThing}/><HistoryBlock icon="♥" title="Просьбы и сообщения папе" text={shown.dadNote}/><div className="history-summary"><span>{selectedRecord?.stars ?? 0} ⭐</span><span>{selectedRecord?.closed ? "Подтверждено мамой" : "День не закрыт"}</span></div></div>}</section>
   </main>;
 }
 
@@ -497,6 +569,10 @@ function DadContact({ contacts }: { contacts: DadContacts | null }) {
 
 function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, stars, tomorrowLimit, rewardBudget, onBack, onOpenMission, onOpenWallet }: { day: string; progress: Progress; patch: (next: Partial<Progress>) => void; closed: boolean; onCloseDay: (signature: string) => void; onReopenDay: () => void; stars: number; tomorrowLimit: number; rewardBudget: number; onBack: () => void; onOpenMission: (id: MissionId) => void; onOpenWallet: () => void }) {
   const baseWithoutReserve = stars - (progress.reserveStar ? 1 : 0);
+  const bookReflections = BOOKS.flatMap((book) => {
+    const reflection = progress.bookReflections?.[book.id];
+    return reflection?.savedAt ? [{ book, reflection }] : [];
+  });
   const [signatureOpen, setSignatureOpen] = useState(false);
   const [pdfState, setPdfState] = useState<"idle" | "building" | "error">("idle");
   const transfer = Math.min(Math.floor(rewardBudget / 10) * 10, progress.savingsTransfer);
@@ -509,6 +585,7 @@ function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, s
   return <main className="plain-screen parent-screen">
     <ScreenTop title="Проверка дня" subtitle="Родительский режим" icon="parent" onBack={onBack}/>
     <section className="parent-summary"><div><span>Итог Василисы</span><strong>{stars}/10 ⭐</strong></div><div><span>Лимит завтра</span><strong>{tomorrowLimit} ₽</strong></div></section>
+    {bookReflections.length > 0 && <section className="parent-book-reflections"><div className="panel-title"><span className="panel-emblem bonus">★</span><div><small>Чтение без оценок</small><h2>Книжные заметки Василисы</h2></div></div>{bookReflections.map(({ book, reflection }) => <article key={book.id}><div><strong>{book.title}</strong><span>Папин персональный бонус · +{reflection.bonusStars} ⭐</span></div><p>{reflection.text}</p></article>)}</section>}
     <section className="review-panel"><div className="panel-title"><span className="panel-emblem">✓</span><div><small>Маршрут дня</small><h2>Что отмечено сегодня</h2></div></div><p className="review-hint">Нажмите на невыполненное задание, чтобы сразу открыть его.</p>{missions.map(m => { const done = progress.done.includes(m.id); return <button className={done ? "completed" : "needs-action"} disabled={done || closed} onClick={() => onOpenMission(m.id)} key={m.id}><span>{done ? "✓" : ""}</span><strong>{m.title}</strong><small>{done ? "выполнено" : "Открыть →"}</small></button>; })}</section>
     <section className="parent-settings"><div className="panel-title compact"><span className="panel-emblem bonus">★</span><div><small>Бонус</small><h2>Запасная звезда</h2></div></div><label className={(baseWithoutReserve === 9 && !closed) ? "" : "disabled"}><input type="checkbox" disabled={baseWithoutReserve !== 9 || closed} checked={progress.reserveStar} onChange={e => patch({ reserveStar: e.target.checked })}/><span><strong>Заменить одну пропущенную миссию</strong><small>Доступно только при результате 9/10. Выше 10/10 итог не поднимется.</small></span></label></section>
     <button className="money-review-link" onClick={onOpenWallet}><span className="screen-icon wallet"><NavIcon name="wallet"/></span><div><small>Распределение награды</small><strong>Траты и копилка</strong><p>{tomorrowLimit} ₽ завтра · +{transfer} ₽ на банковский счёт</p></div><b>Открыть →</b></button>

@@ -1,43 +1,72 @@
 export type BookId = "emerald" | "urfin" | "pippi";
 export type ReadingRange = { from: number; to: number };
 export type BookProgress = Partial<Record<BookId, ReadingRange[]>>;
+export type BookReflection = { text: string; savedAt: string; bonusStars: number; bonusAwardedAt: string };
+export type BookReflections = Partial<Record<BookId, BookReflection>>;
+export type ReadingQuestionKind = "fact" | "meaning";
 export type ReadingQuestion = {
   id: string;
+  kind: ReadingQuestionKind;
   fromPage: number;
   unlockPage: number;
+  focus: string;
   prompt: string;
   options: readonly string[];
   answer: string;
+};
+export type DailyReadingSession = {
+  day: string;
+  bookId: BookId;
+  from: number;
+  to: number;
+  minutes: number;
+  questionIds: string[];
+  answers: Record<string, string>;
+  finished: boolean;
 };
 export type Book = { id: BookId; title: string; isbn: string; firstPage: number; lastPage: number; questions: ReadingQuestion[] };
 
 export const BOOKS: readonly Book[] = [
   { id: "emerald", title: "Волшебник Изумрудного города", isbn: "978-5-699-99047-4", firstPage: 5, lastPage: 288, questions: [
-    { id: "em-1", fromPage: 5, unlockPage: 40, prompt: "Кого Элли встретила первым в дороге из необычных спутников?", options: ["Страшилу", "Урфина Джюса", "Капитана Крюка"], answer: "Страшилу" },
-    { id: "em-2", fromPage: 41, unlockPage: 90, prompt: "О чём больше всего мечтал Железный Дровосек?", options: ["О сердце", "О новом топоре", "О золотой короне"], answer: "О сердце" },
-    { id: "em-3", fromPage: 91, unlockPage: 145, prompt: "Какое качество особенно хотел получить Лев?", options: ["Смелость", "Невидимость", "Умение летать"], answer: "Смелость" },
-    { id: "em-4", fromPage: 146, unlockPage: 205, prompt: "К кому друзья шли за помощью в Изумрудном городе?", options: ["К Гудвину", "К Урфину", "К Бастинде"], answer: "К Гудвину" },
-    { id: "em-5", fromPage: 206, unlockPage: 288, prompt: "Что помогло Элли вернуться домой?", options: ["Серебряные башмачки", "Воздушный шар", "Корабль"], answer: "Серебряные башмачки" },
+    { id: "em-1-meaning", kind: "meaning", fromPage: 5, unlockPage: 30, focus: "Цель путешествия Элли", prompt: "Зачем Элли решила идти в Изумрудный город?", options: ["Попросить Гудвина помочь ей вернуться домой", "Найти спрятанный клад", "Стать правительницей города"], answer: "Попросить Гудвина помочь ей вернуться домой" },
+    { id: "em-2-meaning", kind: "meaning", fromPage: 31, unlockPage: 90, focus: "Почему герои идут вместе", prompt: "Почему спутники Элли продолжили путь вместе?", options: ["Каждому была нужна помощь Гудвина", "Они искали сокровища", "Они хотели захватить город"], answer: "Каждому была нужна помощь Гудвина" },
+    { id: "em-3-meaning", kind: "meaning", fromPage: 91, unlockPage: 145, focus: "Взаимная помощь в опасности", prompt: "Что помогло друзьям пройти опасный участок пути?", options: ["Они помогали друг другу", "Они бросили отставших", "Они вернулись домой"], answer: "Они помогали друг другу" },
+    { id: "em-4-meaning", kind: "meaning", fromPage: 146, unlockPage: 205, focus: "Поддержка помогает сохранить надежду", prompt: "Почему друзья смогли продолжить путь после плена?", options: ["Они не перестали поддерживать друг друга", "Им разрешили забыть обещание", "Они решили служить Бастинде"], answer: "Они не перестали поддерживать друг друга" },
+    { id: "em-5-meaning", kind: "meaning", fromPage: 206, unlockPage: 288, focus: "Искомые качества проявляются в поступках", prompt: "Что друзья поняли о своих заветных качествах?", options: ["Эти качества уже проявлялись в их поступках", "Качества можно только купить", "Их мечты были неважными"], answer: "Эти качества уже проявлялись в их поступках" },
   ]},
   { id: "urfin", title: "Урфин Джюс и его деревянные солдаты", isbn: "978-5-699-96357-7", firstPage: 5, lastPage: 248, questions: [
-    { id: "ur-1", fromPage: 5, unlockPage: 30, prompt: "Что Урфин нашёл необычного после бури?", options: ["Живительный порошок", "Карту сокровищ", "Волшебную корону"], answer: "Живительный порошок" },
-    { id: "ur-2", fromPage: 31, unlockPage: 73, prompt: "Из чего Урфин сделал своих первых солдат?", options: ["Из дерева", "Из железа", "Из камня"], answer: "Из дерева" },
-    { id: "ur-3", fromPage: 74, unlockPage: 122, prompt: "Как звали механического медведя, который помогал друзьям?", options: ["Топотун", "Артошка", "Громобой"], answer: "Топотун" },
-    { id: "ur-4", fromPage: 123, unlockPage: 182, prompt: "Кому друзья решили помочь освободить Изумрудный город?", options: ["Страшиле", "Бастинде", "Людоеду"], answer: "Страшиле" },
-    { id: "ur-5", fromPage: 183, unlockPage: 218, prompt: "Почему деревянные солдаты слушались Урфина?", options: ["Он оживил их порошком", "Он платил им деньгами", "Они были его соседями"], answer: "Он оживил их порошком" },
-    { id: "ur-6", fromPage: 219, unlockPage: 248, prompt: "Что стало главным итогом победы героев?", options: ["Изумрудный город освободили", "Герои нашли клад", "Все уехали из страны"], answer: "Изумрудный город освободили" },
+    { id: "ur-1-meaning", kind: "meaning", fromPage: 5, unlockPage: 30, focus: "Как Урфин решил использовать силу", prompt: "Как находка изменила планы Урфина?", options: ["Он решил создать послушную армию", "Он отказался от всех замыслов", "Он захотел стать садовником"], answer: "Он решил создать послушную армию" },
+    { id: "ur-2-meaning", kind: "meaning", fromPage: 31, unlockPage: 73, focus: "Опасность бездумного подчинения", prompt: "Почему жителям города стало трудно сопротивляться?", options: ["Дуболомы выполняли приказы и не уставали", "Жители сами выбрали Урфина", "У города исчезли все ворота"], answer: "Дуболомы выполняли приказы и не уставали" },
+    { id: "ur-3-meaning", kind: "meaning", fromPage: 74, unlockPage: 122, focus: "Готовность прийти друзьям на помощь", prompt: "Почему Элли и Чарли отправились в опасный путь?", options: ["Чтобы помочь друзьям в Волшебной стране", "Чтобы найти золото", "Чтобы увидеть парад дуболомов"], answer: "Чтобы помочь друзьям в Волшебной стране" },
+    { id: "ur-4-meaning", kind: "meaning", fromPage: 123, unlockPage: 182, focus: "Смелость и взаимная помощь", prompt: "Что помогало героям преодолевать опасности в дороге?", options: ["Смелость и взаимная помощь", "Приказы Урфина", "Желание стать богатыми"], answer: "Смелость и взаимная помощь" },
+    { id: "ur-5-meaning", kind: "meaning", fromPage: 183, unlockPage: 218, focus: "Совместные действия сильнее одиночных", prompt: "Почему сопротивление Урфину стало успешным?", options: ["Герои действовали вместе", "Урфин сам подарил им победу", "Дуболомы нашли сокровища"], answer: "Герои действовали вместе" },
+    { id: "ur-6-meaning", kind: "meaning", fromPage: 219, unlockPage: 248, focus: "Власть на страхе непрочна", prompt: "Что история показывает о власти, которая держится на страхе?", options: ["Она не становится прочной", "Она всегда делает всех счастливыми", "Она не нуждается в помощниках"], answer: "Она не становится прочной" },
   ]},
   { id: "pippi", title: "Пеппи Длинныйчулок поселяется на вилле «Курица»", isbn: "978-5-389-10686-4", firstPage: 5, lastPage: 125, questions: [
-    { id: "pi-1", fromPage: 5, unlockPage: 25, prompt: "Как называется дом, в котором живёт Пеппи?", options: ["Вилла «Курица»", "Изумрудный дворец", "Дом у моря"], answer: "Вилла «Курица»" },
-    { id: "pi-2", fromPage: 26, unlockPage: 45, prompt: "Как зовут друзей Пеппи по соседству?", options: ["Томми и Анника", "Элли и Тотошка", "Винни и Пятачок"], answer: "Томми и Анника" },
-    { id: "pi-3", fromPage: 46, unlockPage: 65, prompt: "Какое домашнее животное есть у Пеппи?", options: ["Лошадь", "Тигр", "Кролик"], answer: "Лошадь" },
-    { id: "pi-4", fromPage: 66, unlockPage: 85, prompt: "Почему Пеппи часто удивляет взрослых?", options: ["Она делает всё по-своему", "Она боится говорить", "Она никогда не смеётся"], answer: "Она делает всё по-своему" },
-    { id: "pi-5", fromPage: 86, unlockPage: 105, prompt: "Как Пеппи относится к своим друзьям?", options: ["Заботится и защищает", "Не замечает их", "Командует ими"], answer: "Заботится и защищает" },
-    { id: "pi-6", fromPage: 106, unlockPage: 125, prompt: "Что делает виллу «Курица» особенным местом?", options: ["Там друзьям хорошо вместе", "Там спрятан клад", "Там живёт волшебник"], answer: "Там друзьям хорошо вместе" },
+    { id: "pi-1-meaning", kind: "meaning", fromPage: 5, unlockPage: 25, focus: "Самостоятельность Пеппи", prompt: "Почему знакомство с Пеппи удивило Томми и Аннику?", options: ["Она жила и вела хозяйство самостоятельно", "Она совсем не разговаривала", "Она была их новой учительницей"], answer: "Она жила и вела хозяйство самостоятельно" },
+    { id: "pi-2-meaning", kind: "meaning", fromPage: 26, unlockPage: 45, focus: "Право искать собственный способ", prompt: "Как Пеппи реагирует, когда взрослые требуют обычного поведения?", options: ["Находит свой необычный способ действовать", "Всегда молча соглашается", "Сразу убегает из города"], answer: "Находит свой необычный способ действовать" },
+    { id: "pi-3-meaning", kind: "meaning", fromPage: 46, unlockPage: 65, focus: "Воображение превращает день в приключение", prompt: "Почему Томми и Аннике интересно проводить время с Пеппи?", options: ["Она превращает обычный день в приключение", "Она запрещает им играть", "Она даёт им школьные контрольные"], answer: "Она превращает обычный день в приключение" },
+    { id: "pi-4-meaning", kind: "meaning", fromPage: 66, unlockPage: 85, focus: "Пеппи не боится быть собой", prompt: "Почему поступки Пеппи часто удивляют взрослых?", options: ["Она делает всё по-своему", "Она боится говорить", "Она никогда не смеётся"], answer: "Она делает всё по-своему" },
+    { id: "pi-5-meaning", kind: "meaning", fromPage: 86, unlockPage: 105, focus: "Забота и защита друзей", prompt: "Как Пеппи относится к своим друзьям?", options: ["Заботится и защищает", "Не замечает их", "Только командует ими"], answer: "Заботится и защищает" },
+    { id: "pi-6-meaning", kind: "meaning", fromPage: 106, unlockPage: 125, focus: "Дружба делает дом особенным", prompt: "Что делает виллу «Курица» особенным местом?", options: ["Там друзьям хорошо вместе", "Там спрятан клад", "Там живёт волшебник"], answer: "Там друзьям хорошо вместе" },
   ]},
 ] as const;
 
 export function getBook(value: unknown) { return BOOKS.find((book) => book.id === value) ?? BOOKS[0]; }
+export function cleanBookReflections(value: unknown): BookReflections {
+  if (!value || typeof value !== "object") return {};
+  const source = value as Record<string, unknown>;
+  return Object.fromEntries(BOOKS.flatMap((book) => {
+    const raw = source[book.id];
+    if (!raw || typeof raw !== "object") return [];
+    const reflection = raw as Record<string, unknown>;
+    const text = typeof reflection.text === "string" ? reflection.text.slice(0, 3000) : "";
+    const savedAt = typeof reflection.savedAt === "string" ? reflection.savedAt.slice(0, 40) : "";
+    const completed = Boolean(text.trim() && savedAt);
+    const bonusAwardedAt = completed && typeof reflection.bonusAwardedAt === "string" ? reflection.bonusAwardedAt.slice(0, 40) : completed ? savedAt : "";
+    return [[book.id, { text, savedAt, bonusStars: completed ? 10 : 0, bonusAwardedAt }]];
+  })) as BookReflections;
+}
 export function cleanRanges(value: unknown, book: Book): ReadingRange[] {
   if (!Array.isArray(value)) return [];
   const ranges = value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
@@ -58,11 +87,43 @@ export function bookIndex(id: BookId) { return Math.max(0, BOOKS.findIndex((book
 export function nextBook(id: BookId) { return BOOKS[bookIndex(id) + 1] ?? null; }
 export function activeQuestion(book: Book, page: number, answered: string[]) { return book.questions.find((question) => question.unlockPage <= page && !answered.includes(question.id)) ?? null; }
 export function isReadingAnswerCorrect(question: ReadingQuestion | undefined, answer: string | undefined) { return Boolean(question && answer?.trim() === question.answer); }
-export function hasCorrectReadingAnswer(book: Book, answers: Record<string, string> | undefined) {
-  return book.questions.some((question) => isReadingAnswerCorrect(question, answers?.[question.id]));
+export function readingQuestionsForRange(book: Book, range: ReadingRange, answered: string[] = []) {
+  const available = book.questions.filter((question) => question.unlockPage >= range.from && question.unlockPage <= range.to && !answered.includes(question.id));
+  return available.slice(0, 1);
 }
-export function readingStarCount(book: Book, answers: Record<string, string> | undefined, minutes: number, completed: boolean) {
+export function getReadingQuestion(book: Book, questionId: string) { return book.questions.find((question) => question.id === questionId); }
+export function cleanDailyReadingSession(value: unknown, expectedDay: string): DailyReadingSession | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Record<string, unknown>;
+  if (source.day !== expectedDay || !BOOKS.some((book) => book.id === source.bookId)) return null;
+  const book = getBook(source.bookId);
+  const from = Math.max(book.firstPage, Math.round(Number(source.from)));
+  const to = Math.min(book.lastPage, Math.round(Number(source.to)));
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from > to) return null;
+  const questionIds = readingQuestionsForRange(book, { from, to }).map((question) => question.id);
+  const rawAnswers = source.answers && typeof source.answers === "object" ? source.answers as Record<string, unknown> : {};
+  const answers = Object.fromEntries(questionIds.map((questionId) => [questionId, typeof rawAnswers[questionId] === "string" ? rawAnswers[questionId].slice(0, 200) : ""]));
+  return {
+    day: expectedDay,
+    bookId: book.id,
+    from,
+    to,
+    minutes: Math.max(15, Math.min(30, Math.round(Number(source.minutes) || 15))),
+    questionIds,
+    answers,
+    finished: Boolean(source.finished),
+  };
+}
+export function isCurrentReadingCorrect(session: DailyReadingSession | null | undefined, expectedDay: string) {
+  if (!session || session.day !== expectedDay || session.questionIds.length === 0) return false;
+  const book = getBook(session.bookId);
+  return session.questionIds.every((questionId) => {
+    const question = getReadingQuestion(book, questionId);
+    return Boolean(question && question.unlockPage >= session.from && question.unlockPage <= session.to && isReadingAnswerCorrect(question, session.answers[questionId]));
+  });
+}
+export function readingStarCount(session: DailyReadingSession | null | undefined, completed: boolean, expectedDay: string) {
   if (!completed) return 0;
-  if (hasCorrectReadingAnswer(book, answers)) return 3;
-  return minutes >= 20 ? 2 : 1;
+  if (isCurrentReadingCorrect(session, expectedDay)) return 3;
+  return (session?.minutes ?? 15) >= 20 ? 2 : 1;
 }
