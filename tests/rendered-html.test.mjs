@@ -28,3 +28,13 @@ test("reading uses one compact end-page field and views survive a refresh", asyn
   assert.match(adventure, /viewFromHash\(window\.location\.hash\)/);
   assert.match(adventure, /window\.history\.replaceState/);
 });
+
+test("dad is the only named adult in the daily confirmation flow", async () => {
+  const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
+  const dailyContent = await readFile(new URL("../app/daily-content.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(adventure, /мам/i);
+  assert.doesNotMatch(dailyContent, /мам/i);
+  assert.match(adventure, /Подпись папы/);
+  assert.match(adventure, /Папа подтверждает бытовые миссии/);
+  assert.match(adventure, /<span>Папе<\/span>/);
+});
