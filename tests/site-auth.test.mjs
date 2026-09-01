@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { secureTextEqual, secureUsernameEqual } from "../app/site-auth.ts";
+import { passwordWithUppercaseFirstCharacter, secureTextEqual, secureUsernameEqual } from "../app/site-auth.ts";
 
 test("accepts the site username in either letter case", async () => {
   assert.equal(await secureUsernameEqual("FamilyUser", "familyuser"), true);
@@ -9,6 +9,8 @@ test("accepts the site username in either letter case", async () => {
 });
 
 test("keeps the site password case-sensitive", async () => {
-  assert.equal(await secureTextEqual("Capitalized-password", "Capitalized-password"), true);
-  assert.equal(await secureTextEqual("capitalized-password", "Capitalized-password"), false);
+  const expectedPassword = passwordWithUppercaseFirstCharacter("capitalized-password");
+  assert.equal(expectedPassword, "Capitalized-password");
+  assert.equal(await secureTextEqual("Capitalized-password", expectedPassword), true);
+  assert.equal(await secureTextEqual("capitalized-password", expectedPassword), false);
 });

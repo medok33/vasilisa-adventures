@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   createSiteSession,
+  passwordWithUppercaseFirstCharacter,
   safeReturnTo,
   secureTextEqual,
   secureUsernameEqual,
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   const returnTo = safeReturnTo(String(form.get("returnTo") ?? "/"));
   const [usernameMatches, passwordMatches] = await Promise.all([
     secureUsernameEqual(username, expectedUsername),
-    secureTextEqual(password, expectedPassword),
+    secureTextEqual(password, passwordWithUppercaseFirstCharacter(expectedPassword)),
   ]);
   if (!usernameMatches || !passwordMatches) {
     const failureParams = new URLSearchParams({ error: "1", returnTo });

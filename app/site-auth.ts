@@ -41,6 +41,10 @@ export async function secureUsernameEqual(left: string, right: string) {
   return secureTextEqual(left.toLowerCase(), right.toLowerCase());
 }
 
+export function passwordWithUppercaseFirstCharacter(value: string) {
+  return value.length === 0 ? value : `${value[0].toUpperCase()}${value.slice(1)}`;
+}
+
 export function safeReturnTo(value: string | null | undefined) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
   try {
