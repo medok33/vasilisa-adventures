@@ -437,7 +437,7 @@ export default function Adventure() {
             <ActionButton disabled={!progress.kindnessChoice || (progress.kindnessChoice === "Своё доброе дело" && progress.kindnessNote.trim().length < 3)} onClick={() => complete("kindness", "Добрая миссия выполнена")}>Миссия сделана</ActionButton>
           </>}
           {view === "independence" && <>
-            <Intro title="Что получилось без напоминания?" text="Выбери только то, о чём сегодня действительно вспомнила сама. Эту звезду вечером подтверждает папа." />
+            <Intro title="Что получилось без напоминания?" text="Выбери только то, о чём сегодня действительно вспомнила сама. Эту звезду вечером подтверждает мама." />
             <ChoiceList options={[...content.independence, "Свой вариант"]} selected={progress.independenceChoice} onSelect={(independenceChoice) => patch({ independenceChoice })} />
             {progress.independenceChoice === "Свой вариант" && <label className="long-field"><span>Что именно получилось самой?</span><textarea value={progress.independenceNote} onChange={(e) => patch({ independenceNote: e.target.value })} placeholder="Напиши коротко" /></label>}
             <ActionButton disabled={!progress.independenceChoice || (progress.independenceChoice === "Свой вариант" && progress.independenceNote.trim().length < 3)} onClick={() => complete("independence", "Суперспособность открыта")}>Я действительно сделала сама</ActionButton>
@@ -470,7 +470,7 @@ export default function Adventure() {
       <section className="dashboard-strip" id="wallet-anchor">
         <button className="money-stat" onClick={() => goTo("wallet")}><span>Можно сегодня</span><strong>{todayLimit} ₽</strong><small>В копилке {progress.balance.toLocaleString("ru-RU")} ₽ <b>→</b></small></button>
         <div className="star-summary"><span>Звёзды сегодня</span><strong>{earnedStars}<small> из 10</small></strong><div className="mini-stars">{Array.from({length:10},(_,i)=><i className={i<earnedStars?"filled":""} key={i} />)}</div></div>
-        <div className="tomorrow-stat"><span>Откроется завтра</span><strong>{tomorrowLimit} ₽</strong><small>После проверки папой</small></div>
+        <div className="tomorrow-stat"><span>Откроется завтра</span><strong>{tomorrowLimit} ₽</strong><small>После проверки мамой</small></div>
       </section>
 
       <section className="weekly-card"><div><span>Большая миссия недели</span><h2>Собери 5 солнечных фрагментов</h2><p>Фрагмент открывается за день с 7 или более звёздами. В конце недели выбери одно большое семейное приключение.</p></div><div className="weekly-fragments" aria-label={`${Math.min(5, weeklyFragments)} из 5 фрагментов`}>{Array.from({length:5},(_,index)=><i className={index<weeklyFragments?"filled":""} key={index}>★</i>)}<strong>{Math.min(5, weeklyFragments)}/5</strong></div></section>
@@ -482,7 +482,7 @@ export default function Adventure() {
 
       <section className="bottom-cards">
         <button id="journal-anchor" className="journal-card" onClick={() => goTo("journal")}><span>Личное пространство</span><strong>Мой день</strong><p>Что получилось, что было непросто и что рассказать папе.</p><i>Открыть дневник <b>→</b></i></button>
-        <button id="parent-anchor" className={`parent-card ${closed ? "closed" : ""}`} onClick={() => goTo("parent")}><span>Для взрослых</span><strong>{closed ? "День подтверждён" : "Проверка дня"}</strong><p>{closed ? "Все результаты сохранены. День можно открыть для исправления." : "Папа подтверждает бытовые миссии и закрывает день вечером."}</p><i>{closed ? `${earnedStars}/10 ⭐ · ${tomorrowLimit} ₽ завтра` : "Перейти к проверке →"}</i></button>
+        <button id="parent-anchor" className={`parent-card ${closed ? "closed" : ""}`} onClick={() => goTo("parent")}><span>Для мамы</span><strong>{closed ? "День подтверждён" : "Мамина проверка"}</strong><p>{closed ? "Все результаты сохранены. День можно открыть для исправления." : "Мама подтверждает бытовые миссии и подписывает отчёт дня."}</p><i>{closed ? `${earnedStars}/10 ⭐ · ${tomorrowLimit} ₽ завтра` : "Перейти к маминой проверке →"}</i></button>
       </section>
 
       {bottomNav}
@@ -491,7 +491,7 @@ export default function Adventure() {
 }
 
 function BottomNav({ active, onOpen }: { active: NavSection; onOpen: (section: NavSection) => void }) {
-  return <nav className="mobile-nav" aria-label="Основные разделы"><button className={active==="today"?"active":""} onClick={() => onOpen("today")}><NavIcon name="home"/><span>Сегодня</span></button><button className={active==="wallet"?"active":""} onClick={() => onOpen("wallet")}><NavIcon name="wallet"/><span>Копилка</span></button><button className={active==="journal"?"active":""} onClick={() => onOpen("journal")}><NavIcon name="journal"/><span>Мой день</span></button><button className={active==="parent"?"active":""} onClick={() => onOpen("parent")}><NavIcon name="parent"/><span>Папе</span></button></nav>;
+  return <nav className="mobile-nav" aria-label="Основные разделы"><button className={active==="today"?"active":""} onClick={() => onOpen("today")}><NavIcon name="home"/><span>Сегодня</span></button><button className={active==="wallet"?"active":""} onClick={() => onOpen("wallet")}><NavIcon name="wallet"/><span>Копилка</span></button><button className={active==="journal"?"active":""} onClick={() => onOpen("journal")}><NavIcon name="journal"/><span>Мой день</span></button><button className={active==="parent"?"active":""} onClick={() => onOpen("parent")}><NavIcon name="parent"/><span>Маме</span></button></nav>;
 }
 
 function DayLockedBanner({ onUnlock }: { onUnlock: () => void }) {
@@ -556,7 +556,7 @@ function WalletScreen({ progress, patch, todayLimit, tomorrowLimit, rewardBudget
   const maxTransfer = Math.floor(rewardBudget / 10) * 10;
   const transfer = Math.min(maxTransfer, progress.savingsTransfer);
   const spendingPart = rewardBudget - transfer;
-  return <main className={`plain-screen ${closed ? "screen-locked" : ""}`}><ScreenTop title="Моя копилка" subtitle="Ты решаешь, куда направить награду" onBack={onBack}/>{closed && <DayLockedBanner onUnlock={onUnlock}/>}<section className="wallet-hero"><span>На банковском счёте</span><strong>{progress.balance.toLocaleString("ru-RU")} ₽</strong><p>Сегодня можно потратить до {todayLimit} ₽. Новая награда распределяется отдельно и подтвердится папой.</p></section><section className="allocation-panel"><div className="allocation-heading"><div><span>Награда за сегодня</span><h2>Распредели {rewardBudget} ₽</h2><p>Выбери сумму для копилки шагом 10 ₽. Остальное увеличит лимит на завтра.</p></div><b>{closed ? "Подтверждено" : "Можно менять"}</b></div><div className="allocation-result"><article><span>На траты завтра</span><strong>{spendingPart} ₽</strong><small>Лимит станет {tomorrowLimit} ₽</small></article><article><span>В копилку</span><strong>{transfer} ₽</strong><small>Счёт станет {(progress.balance + (progress.savingsApplied ? 0 : transfer)).toLocaleString("ru-RU")} ₽</small></article></div><label className="allocation-control"><span>Перевести в копилку</span><div><button disabled={closed || transfer <= 0} onClick={()=>patch({savingsTransfer:Math.max(0,transfer-10)})}>−</button><output>{transfer} ₽</output><button disabled={closed || transfer >= maxTransfer} onClick={()=>patch({savingsTransfer:Math.min(maxTransfer,transfer+10)})}>+</button></div><input aria-label="Сумма в копилку" type="range" min="0" max={maxTransfer || 0} step="10" disabled={closed || maxTransfer === 0} value={transfer} onChange={e=>patch({savingsTransfer:Number(e.target.value)})}/></label>{rewardBudget % 10 !== 0 && <small className="allocation-note">Остаток {rewardBudget % 10} ₽ автоматически идёт в лимит на завтра.</small>}</section><section className="goal-panel"><div className="goal-title-row"><div><span>Моя цель</span><strong>{progress.goalTitle || "Выбери, на что копить"}</strong><small>{progress.goalAmount ? `Осталось накопить ${left.toLocaleString("ru-RU")} ₽` : "Придумай цель и укажи её стоимость"}</small></div><b>{percent}%</b></div><div className="goal-line"><i style={{width:`${percent}%`}}/></div><button className="goal-edit-button" onClick={() => setEditingGoal((value) => !value)}>{editingGoal ? "Свернуть настройку" : progress.goalTitle ? "Изменить цель" : "Выбрать цель"}<span>→</span></button>{editingGoal && <div className="goal-editor"><label><span>Что ты хочешь?</span><input value={progress.goalTitle} onChange={e=>patch({goalTitle:e.target.value})} placeholder="Например, ролики"/></label><label><span>Сколько это стоит?</span><input type="number" inputMode="numeric" value={progress.goalAmount || ""} onChange={e=>patch({goalAmount:clampMoney(Number(e.target.value))})} placeholder="5000 ₽"/></label><p>Можно выбрать самой, а потом обсудить с папой.</p></div>}</section></main>;
+  return <main className={`plain-screen ${closed ? "screen-locked" : ""}`}><ScreenTop title="Моя копилка" subtitle="Ты решаешь, куда направить награду" onBack={onBack}/>{closed && <DayLockedBanner onUnlock={onUnlock}/>}<section className="wallet-hero"><span>На банковском счёте</span><strong>{progress.balance.toLocaleString("ru-RU")} ₽</strong><p>Сегодня можно потратить до {todayLimit} ₽. Новая награда распределяется отдельно и подтвердится мамой.</p></section><section className="allocation-panel"><div className="allocation-heading"><div><span>Награда за сегодня</span><h2>Распредели {rewardBudget} ₽</h2><p>Выбери сумму для копилки шагом 10 ₽. Остальное увеличит лимит на завтра.</p></div><b>{closed ? "Подтверждено" : "Можно менять"}</b></div><div className="allocation-result"><article><span>На траты завтра</span><strong>{spendingPart} ₽</strong><small>Лимит станет {tomorrowLimit} ₽</small></article><article><span>В копилку</span><strong>{transfer} ₽</strong><small>Счёт станет {(progress.balance + (progress.savingsApplied ? 0 : transfer)).toLocaleString("ru-RU")} ₽</small></article></div><label className="allocation-control"><span>Перевести в копилку</span><div><button disabled={closed || transfer <= 0} onClick={()=>patch({savingsTransfer:Math.max(0,transfer-10)})}>−</button><output>{transfer} ₽</output><button disabled={closed || transfer >= maxTransfer} onClick={()=>patch({savingsTransfer:Math.min(maxTransfer,transfer+10)})}>+</button></div><input aria-label="Сумма в копилку" type="range" min="0" max={maxTransfer || 0} step="10" disabled={closed || maxTransfer === 0} value={transfer} onChange={e=>patch({savingsTransfer:Number(e.target.value)})}/></label>{rewardBudget % 10 !== 0 && <small className="allocation-note">Остаток {rewardBudget % 10} ₽ автоматически идёт в лимит на завтра.</small>}</section><section className="goal-panel"><div className="goal-title-row"><div><span>Моя цель</span><strong>{progress.goalTitle || "Выбери, на что копить"}</strong><small>{progress.goalAmount ? `Осталось накопить ${left.toLocaleString("ru-RU")} ₽` : "Придумай цель и укажи её стоимость"}</small></div><b>{percent}%</b></div><div className="goal-line"><i style={{width:`${percent}%`}}/></div><button className="goal-edit-button" onClick={() => setEditingGoal((value) => !value)}>{editingGoal ? "Свернуть настройку" : progress.goalTitle ? "Изменить цель" : "Выбрать цель"}<span>→</span></button>{editingGoal && <div className="goal-editor"><label><span>Что ты хочешь?</span><input value={progress.goalTitle} onChange={e=>patch({goalTitle:e.target.value})} placeholder="Например, ролики"/></label><label><span>Сколько это стоит?</span><input type="number" inputMode="numeric" value={progress.goalAmount || ""} onChange={e=>patch({goalAmount:clampMoney(Number(e.target.value))})} placeholder="5000 ₽"/></label><p>Можно выбрать самой, а потом обсудить с мамой или папой.</p></div>}</section></main>;
 }
 
 const moods = [{id:"joy",label:"Радостно"},{id:"calm",label:"Спокойно"},{id:"okay",label:"Обычно"},{id:"sad",label:"Грустно"},{id:"tired",label:"Устала"}] as const;
@@ -577,7 +577,7 @@ function JournalScreen({ day, progress, patch, history, historyLoading, dadConta
     <ScreenTop title="Мой день" subtitle={isToday ? "Мысли, настроение и маленькие победы" : dayLabel(selectedDay)} icon="journal" onBack={onBack}/>
     {closed && isToday && <DayLockedBanner onUnlock={onUnlock}/>} 
     <section className="journal-history"><div className="history-heading"><div><span>Дневник Василисы</span><h2>История дней</h2></div><small>{historyLoading ? "Загружаю…" : `${Math.max(history.length, 1)} дней сохранено`}</small></div><div className="history-strip"><button className={isToday ? "selected" : ""} onClick={() => setSelectedDay(day)}><b>Сегодня</b><span>{new Date(`${day}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</span></button>{history.filter((item) => item.day !== day).slice(0, 30).map((item) => <button className={selectedDay === item.day ? "selected" : ""} onClick={() => setSelectedDay(item.day)} key={item.day}><b>{new Date(`${item.day}T12:00:00`).toLocaleDateString("ru-RU", { weekday: "short" })}</b><span>{new Date(`${item.day}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</span><i>{item.stars} ⭐</i></button>)}</div></section>
-    <section className={`journal-sheet ${isToday ? "" : "history-view"}`}><div className="journal-title"><span className="journal-emblem"><NavIcon name="journal"/></span><div><small>{isToday ? "Сегодня" : "Запись из истории"}</small><h1>{isToday ? "Как ты сегодня?" : dayLabel(selectedDay)}</h1></div></div><div className="mood-row">{moods.map(mood=><button disabled={!isToday} aria-pressed={shown.mood===mood.id} aria-label={mood.label} title={mood.label} className={shown.mood===mood.id?"selected":""} onClick={()=>patch({mood:mood.id})} key={mood.id}><MoodIcon mood={mood.id}/><span>{mood.label}</span></button>)}</div>{isToday ? <><label><span>Что сегодня получилось?</span><textarea value={shown.goodThing} onChange={e=>patch({goodThing:e.target.value})} placeholder="Даже маленькая победа считается"/></label><label><span>Что сегодня было непросто?</span><textarea value={shown.hardThing} onChange={e=>patch({hardThing:e.target.value})} placeholder="Можно записать то, что хочется попробовать по-другому"/></label><label><span>Есть чем поделиться с папой?</span><textarea value={shown.dadNote} onChange={e=>{patch({dadNote:e.target.value});setNotifyState("idle");}} placeholder="Напиши просьбу, новость или просто важную мысль"/></label><button className="dad-notify-button" disabled={!shown.dadNote.trim() || notifyState === "sending" || shown.dadNotifiedText === shown.dadNote.trim()} onClick={sendNote}><ContactMark kind="vk"/><span><b>{notifyState === "sending" ? "Отправляю…" : shown.dadNotifiedText === shown.dadNote.trim() || notifyState === "sent" ? "Папа получил сообщение" : "Поделиться с папой"}</b><small>{notifyState === "setup" ? "Записано. Уведомления VK нужно один раз подключить" : notifyState === "error" ? "Не отправилось — попробуй ещё раз" : "Уведомление придёт папе сразу"}</small></span></button><DadContact contacts={dadContacts}/><button className="primary-action" onClick={onBack}>Сохранить мой день</button></> : <div className="history-sections"><HistoryBlock icon="✓" title="Что получилось" text={shown.goodThing}/><HistoryBlock icon="↗" title="Что было непросто" text={shown.hardThing}/><HistoryBlock icon="♥" title="Просьбы и сообщения папе" text={shown.dadNote}/><div className="history-summary"><span>{selectedRecord?.stars ?? 0} ⭐</span><span>{selectedRecord?.closed ? "Подтверждено папой" : "День не закрыт"}</span></div></div>}</section>
+    <section className={`journal-sheet ${isToday ? "" : "history-view"}`}><div className="journal-title"><span className="journal-emblem"><NavIcon name="journal"/></span><div><small>{isToday ? "Сегодня" : "Запись из истории"}</small><h1>{isToday ? "Как ты сегодня?" : dayLabel(selectedDay)}</h1></div></div><div className="mood-row">{moods.map(mood=><button disabled={!isToday} aria-pressed={shown.mood===mood.id} aria-label={mood.label} title={mood.label} className={shown.mood===mood.id?"selected":""} onClick={()=>patch({mood:mood.id})} key={mood.id}><MoodIcon mood={mood.id}/><span>{mood.label}</span></button>)}</div>{isToday ? <><label><span>Что сегодня получилось?</span><textarea value={shown.goodThing} onChange={e=>patch({goodThing:e.target.value})} placeholder="Даже маленькая победа считается"/></label><label><span>Что сегодня было непросто?</span><textarea value={shown.hardThing} onChange={e=>patch({hardThing:e.target.value})} placeholder="Можно записать то, что хочется попробовать по-другому"/></label><label><span>Есть чем поделиться с папой?</span><textarea value={shown.dadNote} onChange={e=>{patch({dadNote:e.target.value});setNotifyState("idle");}} placeholder="Напиши просьбу, новость или просто важную мысль"/></label><button className="dad-notify-button" disabled={!shown.dadNote.trim() || notifyState === "sending" || shown.dadNotifiedText === shown.dadNote.trim()} onClick={sendNote}><ContactMark kind="vk"/><span><b>{notifyState === "sending" ? "Отправляю…" : shown.dadNotifiedText === shown.dadNote.trim() || notifyState === "sent" ? "Папа получил сообщение" : "Поделиться с папой"}</b><small>{notifyState === "setup" ? "Записано. Уведомления VK нужно один раз подключить" : notifyState === "error" ? "Не отправилось — попробуй ещё раз" : "Уведомление придёт папе сразу"}</small></span></button><DadContact contacts={dadContacts}/><button className="primary-action" onClick={onBack}>Сохранить мой день</button></> : <div className="history-sections"><HistoryBlock icon="✓" title="Что получилось" text={shown.goodThing}/><HistoryBlock icon="↗" title="Что было непросто" text={shown.hardThing}/><HistoryBlock icon="♥" title="Просьбы и сообщения папе" text={shown.dadNote}/><div className="history-summary"><span>{selectedRecord?.stars ?? 0} ⭐</span><span>{selectedRecord?.closed ? "Подтверждено мамой" : "День не закрыт"}</span></div></div>}</section>
   </main>;
 }
 
@@ -602,18 +602,33 @@ function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, s
     catch { setPdfState("error"); }
   }
   return <main className="plain-screen parent-screen">
-    <ScreenTop title="Проверка дня" subtitle="Родительский режим" icon="parent" onBack={onBack}/>
+    <ScreenTop title="Мамина проверка" subtitle="Мамин раздел" icon="parent" onBack={onBack}/>
     <section className="parent-summary"><div><span>Итог Василисы</span><strong>{stars}/10 ⭐</strong></div><div><span>Лимит завтра</span><strong>{tomorrowLimit} ₽</strong></div></section>
     {bookReflections.length > 0 && <section className="parent-book-reflections"><div className="panel-title"><span className="panel-emblem bonus">★</span><div><small>Чтение без оценок</small><h2>Книжные заметки Василисы</h2></div></div>{bookReflections.map(({ book, reflection }) => <article key={book.id}><div><strong>{book.title}</strong><span>Папин персональный бонус · +{reflection.bonusStars} ⭐</span></div><p>{reflection.text}</p></article>)}</section>}
     <section className="review-panel"><div className="panel-title"><span className="panel-emblem">✓</span><div><small>Маршрут дня</small><h2>Что отмечено сегодня</h2></div></div><p className="review-hint">Нажмите на невыполненное задание, чтобы сразу открыть его.</p>{missions.map(m => { const done = progress.done.includes(m.id); return <button className={done ? "completed" : "needs-action"} disabled={done || closed} onClick={() => onOpenMission(m.id)} key={m.id}><span>{done ? "✓" : ""}</span><strong>{m.title}</strong><small>{done ? "выполнено" : "Открыть →"}</small></button>; })}</section>
     <section className="parent-settings"><div className="panel-title compact"><span className="panel-emblem bonus">★</span><div><small>Бонус</small><h2>Запасная звезда</h2></div></div><label className={(baseWithoutReserve === 9 && !closed) ? "" : "disabled"}><input type="checkbox" disabled={baseWithoutReserve !== 9 || closed} checked={progress.reserveStar} onChange={e => patch({ reserveStar: e.target.checked })}/><span><strong>Заменить одну пропущенную миссию</strong><small>Доступно только при результате 9/10. Выше 10/10 итог не поднимется.</small></span></label></section>
     <button className="money-review-link" onClick={onOpenWallet}><span className="screen-icon wallet"><NavIcon name="wallet"/></span><div><small>Распределение награды</small><strong>Траты и копилка</strong><p>{tomorrowLimit} ₽ завтра · +{transfer} ₽ на банковский счёт</p></div><b>Открыть →</b></button>
-    <section className={`signature-card ${progress.motherSignature ? "signed" : ""}`}><div><span>Подпись папы</span><h2>{progress.motherSignature ? "День проверен" : "Нужна перед закрытием дня"}</h2><p>{progress.motherSignature ? "Подпись сохранена вместе с итогом дня." : "Нажмите кнопку — откроется большое поле, где можно расписаться пальцем."}</p></div>{progress.motherSignature && <img src={progress.motherSignature} alt="Сохранённая подпись папы"/>}<button disabled={closed} onClick={() => setSignatureOpen(true)}>{progress.motherSignature ? "Подписать заново" : "Расписаться пальцем"}</button></section>
+    <section className={`signature-card ${progress.motherSignature ? "signed" : ""}`}><div><span>Подпись мамы</span><h2>{progress.motherSignature ? "День проверен" : "Нужна перед закрытием дня"}</h2><p>{progress.motherSignature ? "Мамина подпись сохранена вместе с итогом дня." : "Нажмите кнопку — откроется большое поле, где мама сможет расписаться пальцем."}</p></div>{progress.motherSignature && <img src={progress.motherSignature} alt="Сохранённая подпись мамы"/>}<button disabled={closed} onClick={() => setSignatureOpen(true)}>{progress.motherSignature ? "Подписать заново" : "Маме расписаться"}</button></section>
     <button className={`close-day ${closed ? "reopen" : ""}`} onClick={closed ? onReopenDay : confirm}>{closed ? "Открыть день для исправления" : "Подтвердить и закрыть день"}</button>
-    {closed && progress.motherSignature && <section className="pdf-report-card"><span className="pdf-emblem">PDF</span><div><strong>Отчёт дня готов</strong><p>Все действия по порядку, дата проверки и подпись папы.</p></div><button onClick={makePdf} disabled={pdfState === "building"}>{pdfState === "building" ? "Собираю…" : "Скачать PDF"}</button>{pdfState === "error" && <small>Не получилось собрать файл. Попробуйте ещё раз.</small>}</section>}
+    {closed && progress.motherSignature && <section className="pdf-report-card"><span className="pdf-emblem">PDF</span><div><strong>Мамин отчёт готов</strong><p>Современный дневник приключений с маминой подписью и синей печатью.</p></div><button onClick={makePdf} disabled={pdfState === "building"}>{pdfState === "building" ? "Собираю…" : "Скачать красивый PDF"}</button>{pdfState === "error" && <small>Не получилось собрать файл. Попробуйте ещё раз.</small>}</section>}
     <p className="parent-note">После закрытия задания нельзя менять, выбранная сумма попадёт в копилку, а новый лимит откроется завтра.</p>
     {signatureOpen && <SignatureModal initial={progress.motherSignature} onCancel={() => setSignatureOpen(false)} onSave={(signature) => { patch({ motherSignature: signature, signedAt: new Date().toISOString() }); setSignatureOpen(false); }}/>} 
   </main>;
+}
+
+function approvalSealSvg() {
+  return `<svg width="140" height="140" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="70" cy="70" r="62" fill="#F4F8FF" stroke="#2F6DCC" stroke-width="4"/>
+    <circle cx="70" cy="70" r="53" fill="none" stroke="#2F6DCC" stroke-width="2" stroke-dasharray="4 4"/>
+    <text x="70" y="31" text-anchor="middle" font-family="Roboto" font-size="10" font-weight="700" fill="#2F6DCC">МАМА ПРОВЕРИЛА</text>
+    <text x="70" y="45" text-anchor="middle" font-family="Roboto" font-size="6" font-weight="700" letter-spacing="1" fill="#5C8BD8">ИГРОВАЯ ПЕЧАТЬ</text>
+    <ellipse cx="70" cy="79" rx="18" ry="15" fill="#2F6DCC"/>
+    <ellipse cx="51" cy="62" rx="7" ry="9" transform="rotate(-28 51 62)" fill="#2F6DCC"/>
+    <ellipse cx="63" cy="55" rx="7" ry="9" transform="rotate(-8 63 55)" fill="#2F6DCC"/>
+    <ellipse cx="77" cy="55" rx="7" ry="9" transform="rotate(8 77 55)" fill="#2F6DCC"/>
+    <ellipse cx="89" cy="62" rx="7" ry="9" transform="rotate(28 89 62)" fill="#2F6DCC"/>
+    <text x="70" y="113" text-anchor="middle" font-family="Roboto" font-size="10" font-weight="700" fill="#2F6DCC">ТЫ УМНИЦА!</text>
+  </svg>`;
 }
 
 export function buildDayPdfDefinition({ day, progress, stars, tomorrowLimit, rewardBudget }: { day: string; progress: Progress; stars: number; tomorrowLimit: number; rewardBudget: number }) {
@@ -621,82 +636,117 @@ export function buildDayPdfDefinition({ day, progress, stars, tomorrowLimit, rew
   const mathQuestions = reportContent.math;
   const englishQuestions = reportContent.english;
   const orderItems = reportContent.order.map((label, index) => [`daily-${index}`, label]);
-  const selectedLabels = (items: string[][], selected: string[]) => items.filter(([id]) => selected.includes(id)).map(([, label]) => label).join("; ") || "Нет отметок";
+  const selectedLabels = (items: string[][], selected: string[]) => items.filter(([id]) => selected.includes(id)).map(([, label]) => label).join("; ") || "Пока без отметок";
   const answerLine = (questions: { label: string }[], answers: string[]) => questions.map((question, index) => `${index + 1}. ${question.label}: ${answers[index] || "нет ответа"}`).join("\n");
-  const missionColors = ["#FFD66B", "#72D6BE", "#7BB8FF", "#FF9A9E", "#FFC56E", "#F58BB0", "#AF91FF"];
-  const missionKinds = ["СТАРТ", "КНИГА", "ШИФР", "ENGLISH", "ПОРЯДОК", "ДОБРО", "САМА"];
+  const missionColors = ["#FFD56A", "#67D5BD", "#71A9FF", "#FF8F98", "#FFBD68", "#E98BB9", "#A98AF8"];
+  const missionKinds = ["СТАРТ", "КНИГА", "МАТЕМАТИКА", "ENGLISH", "ПОРЯДОК", "ДОБРО", "САМА"];
   const missionDetails: Record<MissionId, string> = {
     morning: selectedLabels(morningItems, progress.morningChecks),
-    reading: `Чтение ${progress.readingMinutes} минут. Страницы ${progress.readingStart || "-"}-${progress.readingEnd || "-"}.${progress.readingAnswer ? ` Ответ: ${progress.readingAnswer}` : ""}`,
-    math: answerLine(mathQuestions, progress.mathAnswers),
-    english: answerLine(englishQuestions, progress.englishAnswers),
+    reading: `Чтение ${progress.readingMinutes} минут · страницы ${progress.readingStart || "-"}-${progress.readingEnd || "-"}`,
+    math: `Ответы: ${progress.mathAnswers.filter(Boolean).length} из ${mathQuestions.length} · попыток ${progress.mathAttempts}`,
+    english: `Ответы: ${progress.englishAnswers.filter(Boolean).length} из ${englishQuestions.length} · попыток ${progress.englishAttempts}`,
     order: selectedLabels(orderItems, progress.orderChecks),
-    kindness: `${progress.kindnessChoice || "Не выбрано"}${progress.kindnessNote ? `. ${progress.kindnessNote}` : ""}`,
-    independence: progress.independenceChoice || "Не выбрано",
+    kindness: `${progress.kindnessChoice || "Пока не выбрано"}${progress.kindnessNote ? `. ${progress.kindnessNote}` : ""}`,
+    independence: progress.independenceChoice || "Пока не выбрано",
   };
-  const missionContent: Content[] = missions.map((mission, index) => ({
-    margin: [0, 0, 0, 8],
-    table: {
-      widths: [54, "*", 72],
-      dontBreakRows: true,
-      body: [[
-        { stack: [{ text: String(index + 1).padStart(2, "0"), style: "step" }, { text: missionKinds[index], style: "missionKind" }], fillColor: missionColors[index] },
-        { stack: [{ text: mission.title, style: "missionTitle" }, { text: missionDetails[mission.id], style: "detail" }], fillColor: progress.done.includes(mission.id) ? "#F1FFF8" : "#FFF9F4" },
-        { text: progress.done.includes(mission.id) ? "ГОТОВО" : "ЕЩЁ ВПЕРЕДИ", style: progress.done.includes(mission.id) ? "done" : "missed", alignment: "center", fillColor: progress.done.includes(mission.id) ? "#F1FFF8" : "#FFF9F4" },
-      ]],
-    },
-    layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 11, paddingRight: () => 11, paddingTop: () => 10, paddingBottom: () => 10 },
-  }));
+  const missionContent: Content[] = missions.map((mission, index) => {
+    const complete = progress.done.includes(mission.id);
+    return {
+      margin: [0, 0, 0, 7],
+      unbreakable: true,
+      table: {
+        widths: [7, 38, "*", 64],
+        body: [[
+          { text: "", fillColor: missionColors[index] },
+          { stack: [{ text: String(index + 1).padStart(2, "0"), style: "step" }, { text: missionKinds[index], style: "missionKind" }], fillColor: "#FFFFFF" },
+          { stack: [{ text: mission.title, style: "missionTitle" }, { text: missionDetails[mission.id], style: "detail" }], fillColor: "#FFFFFF" },
+          { text: complete ? "ГОТОВО" : "ВПЕРЕДИ", style: complete ? "done" : "missed", alignment: "center", fillColor: complete ? "#E9FBF4" : "#FFF2EC" },
+        ]],
+      },
+      layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 8, paddingBottom: () => 8 },
+    };
+  });
   const checkedAt = progress.signedAt ? new Date(progress.signedAt).toLocaleString("ru-RU", { timeZone: APP_TIME_ZONE, dateStyle: "long", timeStyle: "short" }) : dayLabel(day);
   const signatureDate = progress.signedAt ? new Date(progress.signedAt).toLocaleDateString("ru-RU", { timeZone: APP_TIME_ZONE }) : new Date(`${day}T12:00:00`).toLocaleDateString("ru-RU");
-  const progressDots = Array.from({ length: 10 }, (_, index) => ({ type: "ellipse" as const, x: 4 + index * 11, y: 5, r1: 3.2, r2: 3.2, color: index < stars ? "#FFB82E" : "#D9DCE7" }));
+  const progressDots = Array.from({ length: 10 }, (_, index) => ({ type: "ellipse" as const, x: 4 + index * 12, y: 6, r1: 3.6, r2: 3.6, color: index < stars ? "#FFB12A" : "#DDE3F2" }));
+  const motivation = stars >= 8 ? "Ты сегодня сияла особенно ярко!" : stars >= 5 ? "Шаг за шагом ты становишься увереннее!" : "Каждая попытка - это новый шаг вперёд!";
+  const signatureContent: Content[] = progress.motherSignature
+    ? [{ image: progress.motherSignature, width: 145, height: 46, fit: [145, 46], alignment: "center", margin: [0, 7, 0, 0] }]
+    : [{ text: "", margin: [0, 35, 0, 0] }];
   const definition: TDocumentDefinitions = {
-    pageSize: "A4", pageMargins: [38, 38, 38, 122],
-    info: { title: `Отчёт Василисы за ${day}` },
+    pageSize: "A4",
+    pageMargins: [34, 34, 34, 54],
+    info: { title: `Дневник приключений Василисы за ${day}` },
     background: (currentPage) => ({ canvas: [
-      { type: "rect", x: 0, y: 0, w: 595, h: 842, color: "#FFFDF8" },
-      { type: "ellipse", x: 548, y: 54, r1: 88, r2: 88, color: currentPage === 1 ? "#E8E2FF" : "#EAF8FF" },
-      { type: "ellipse", x: 38, y: 795, r1: 72, r2: 72, color: "#FFF0D2" },
+      { type: "rect", x: 0, y: 0, w: 595, h: 842, color: "#FFF9F3" },
+      { type: "ellipse", x: 565, y: 46, r1: 96, r2: 96, color: currentPage === 1 ? "#E8E7FF" : "#E4F7FF" },
+      { type: "ellipse", x: 15, y: 815, r1: 88, r2: 88, color: currentPage === 1 ? "#FFF0C9" : "#FCE5F0" },
+      { type: "ellipse", x: 520, y: 760, r1: 26, r2: 26, color: "#DFF7EF" },
     ] }),
     content: [
-      { table: { widths: ["*", 72], body: [
-        [{ text: "ПРИКЛЮЧЕНИЯ ВАСИЛИСЫ", style: "eyebrow", fillColor: "#6757D9" }, { text: "", fillColor: "#5546C7" }],
-        [{ text: "Дневник приключений", style: "title", fillColor: "#6757D9" }, { text: `${stars}/10`, style: "heroScore", alignment: "center", fillColor: "#5546C7", rowSpan: 2, margin: [0, 7, 0, 0] }],
-        [{ text: "Карта пройденного маршрута", style: "heroSubtitle", fillColor: "#6757D9" }, {}],
-        [{ text: dayLabel(day), style: "date", fillColor: "#6757D9" }, { text: "звёзд", style: "heroCaption", alignment: "center", fillColor: "#5546C7" }],
-      ] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 18, paddingRight: () => 18, paddingTop: () => 6, paddingBottom: () => 6 }, margin: [0, 0, 0, 12] },
+      { canvas: [
+        { type: "rect", x: 0, y: 0, w: 423, h: 131, color: "#E9E7FF" },
+        { type: "rect", x: 423, y: 0, w: 104, h: 131, color: "#FF7892" },
+      ], margin: [0, 0, 0, 12] },
+      { absolutePosition: { x: 52, y: 51 }, columns: [{ width: 330, stack: [
+        { text: "ПРИКЛЮЧЕНИЯ ВАСИЛИСЫ", style: "eyebrow" },
+        { text: "Мой день - моя история", style: "title", margin: [0, 8, 0, 5] },
+        { text: "Карта маленьких побед, смелых попыток и добрых дел", style: "heroSubtitle" },
+        { text: dayLabel(day), style: "date", margin: [0, 13, 0, 0] },
+      ] }] },
+      { absolutePosition: { x: 457, y: 53 }, columns: [{ width: 104, stack: [
+        { text: "ЗВЁЗДЫ", style: "heroCaption", alignment: "center" },
+        { text: `${stars}`, style: "heroScore", alignment: "center", margin: [0, 5, 0, 0] },
+        { text: "из 10", style: "heroCaption", alignment: "center" },
+        { text: stars >= 7 ? "СУПЕР ДЕНЬ" : "ДВИГАЕМСЯ ДАЛЬШЕ", style: "scoreNote", alignment: "center", margin: [0, 12, 0, 0] },
+      ] }] },
       { table: { widths: ["*", "*", "*"], body: [[
-        { stack: [{ text: "ЗВЁЗДНЫЙ РЕЗУЛЬТАТ", style: "statLabel" }, { canvas: progressDots, margin: [0, 6, 0, 6] }, { text: `${stars} из 10`, style: "statSmall" }], fillColor: "#FFF4CF" },
-        { stack: [{ text: "НАГРАДА", style: "statLabel" }, { text: `${rewardBudget} ₽`, style: "statValue" }, { text: "за сегодняшний маршрут", style: "statSmall" }], fillColor: "#E9FFF6" },
-        { stack: [{ text: "ЗАВТРА ОТКРОЕТСЯ", style: "statLabel" }, { text: `${tomorrowLimit} ₽`, style: "statValue" }, { text: "новый дневной лимит", style: "statSmall" }], fillColor: "#EAF3FF" },
-      ]] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 12, paddingRight: () => 12, paddingTop: () => 11, paddingBottom: () => 11 }, margin: [0, 0, 0, 18] },
-      { columns: [{ text: "Маршрут дня", style: "sectionTitle" }, { text: "Каждый шаг — часть большого приключения", style: "sectionHint", alignment: "right" }], margin: [0, 0, 0, 10] },
+        { stack: [{ text: "ЗВЁЗДНЫЙ СЛЕД", style: "statLabel" }, { canvas: progressDots, margin: [0, 7, 0, 6] }, { text: `${stars} из 10 собрано`, style: "statSmall" }], fillColor: "#FFF3C8" },
+        { stack: [{ text: "НАГРАДА ДНЯ", style: "statLabel" }, { text: `${rewardBudget} ₽`, style: "statValue" }, { text: "за сегодняшний маршрут", style: "statSmall" }], fillColor: "#E6FAF3" },
+        { stack: [{ text: "ЗАВТРА", style: "statLabel" }, { text: `${tomorrowLimit} ₽`, style: "statValue" }, { text: "откроется после проверки", style: "statSmall" }], fillColor: "#E8F1FF" },
+      ]] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 12, paddingRight: () => 12, paddingTop: () => 12, paddingBottom: () => 12 }, margin: [0, 0, 0, 17] },
+      { columns: [{ text: "Маршрут дня", style: "sectionTitle" }, { text: "7 шагов большого приключения", style: "sectionHint", alignment: "right" }], margin: [0, 0, 0, 9] },
       ...missionContent,
-      { text: "Мой волшебный день", style: "sectionTitle", margin: [0, 16, 0, 10] },
-      { table: { widths: [125, "*"], body: [
-        [{ text: "НАСТРОЕНИЕ", style: "rowLabel", fillColor: "#F1ECFF" }, { text: moods.find((m) => m.id === progress.mood)?.label || "Не выбрано", fillColor: "#FBF9FF" }],
-        [{ text: "МОЯ ПОБЕДА", style: "rowLabel", fillColor: "#E9FFF6" }, { text: progress.goodThing || "Нет записи", fillColor: "#F8FFFC" }],
-        [{ text: "БЫЛО НЕПРОСТО", style: "rowLabel", fillColor: "#FFF3E2" }, { text: progress.hardThing || "Нет записи", fillColor: "#FFFCF7" }],
-        [{ text: "ПАПЕ", style: "rowLabel", fillColor: "#EAF3FF" }, { text: progress.dadNote || "Нет записи", fillColor: "#F8FBFF" }],
-      ] }, layout: { hLineWidth: () => 3, vLineWidth: () => 3, hLineColor: () => "#FFFDF8", vLineColor: () => "#FFFDF8", paddingLeft: () => 11, paddingRight: () => 11, paddingTop: () => 10, paddingBottom: () => 10 } },
-      { table: { widths: [42, "*"], body: [[{ text: "OK", style: "finishStar", alignment: "center", fillColor: "#FFD66B" }, { stack: [{ text: "Маршрут сохранён!", style: "finishTitle" }, { text: `Папа проверил день: ${checkedAt}`, style: "detail" }], fillColor: "#FFF4CF" }]] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 12, paddingRight: () => 12, paddingTop: () => 11, paddingBottom: () => 11 }, margin: [0, 16, 0, 0] },
+      { text: "Мой волшебный день", style: "sectionTitle", pageBreak: "before", margin: [0, 0, 0, 9] },
+      { table: { widths: [116, "*"], body: [
+        [{ text: "НАСТРОЕНИЕ", style: "rowLabel", fillColor: "#EEEAFE" }, { text: moods.find((m) => m.id === progress.mood)?.label || "Пока не выбрано", style: "rowValue", fillColor: "#FAF9FF" }],
+        [{ text: "МОЯ ПОБЕДА", style: "rowLabel", fillColor: "#E2F8F0" }, { text: progress.goodThing || "Нет записи", style: "rowValue", fillColor: "#F8FFFC" }],
+        [{ text: "БЫЛО НЕПРОСТО", style: "rowLabel", fillColor: "#FFF0DB" }, { text: progress.hardThing || "Нет записи", style: "rowValue", fillColor: "#FFFCF8" }],
+        [{ text: "ПАПЕ", style: "rowLabel", fillColor: "#E6F0FF" }, { text: progress.dadNote || "Нет записи", style: "rowValue", fillColor: "#F8FBFF" }],
+      ] }, layout: { hLineWidth: () => 4, vLineWidth: () => 4, hLineColor: () => "#FFF9F3", vLineColor: () => "#FFF9F3", paddingLeft: () => 11, paddingRight: () => 11, paddingTop: () => 10, paddingBottom: () => 10 }, margin: [0, 0, 0, 15] },
+      { columns: [
+        { width: "*", stack: [{ text: "МАТЕМАТИКА", style: "studyLabel" }, { text: answerLine(mathQuestions, progress.mathAnswers), style: "studyText" }], margin: [0, 0, 7, 0], fillColor: "#F2F7FF" },
+        { width: "*", stack: [{ text: "ENGLISH", style: "studyLabel" }, { text: answerLine(englishQuestions, progress.englishAnswers), style: "studyText" }], margin: [7, 0, 0, 0], fillColor: "#FFF1F3" },
+      ], columnGap: 0, margin: [0, 0, 0, 16] },
+      { unbreakable: true, table: { widths: ["*", 192], body: [[
+        { stack: [
+          { text: "МАМИНА ПРОВЕРКА", style: "approvalEyebrow" },
+          { text: "День принят!", style: "approvalTitle", margin: [0, 7, 0, 5] },
+          { text: motivation, style: "approvalText" },
+          { text: `Мама проверила маршрут: ${checkedAt}`, style: "approvalMeta", margin: [0, 13, 0, 0] },
+        ], fillColor: "#EAF2FF" },
+        { stack: [
+          { text: `Дата: ${signatureDate}`, style: "signatureDate", alignment: "center" },
+          ...signatureContent,
+          { canvas: [{ type: "line", x1: 14, y1: 0, x2: 158, y2: 0, lineWidth: 1.2, lineColor: "#4C68A8" }] },
+          { text: "Подпись мамы", style: "signatureLabel", alignment: "center" },
+          { svg: approvalSealSvg(), width: 88, alignment: "right", relativePosition: { x: 8, y: -79 }, margin: [0, 0, 0, -70] },
+        ], fillColor: "#F7FAFF" },
+      ]] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 15, paddingRight: () => 15, paddingTop: () => 14, paddingBottom: () => 14 }, margin: [0, 0, 0, 0] },
     ],
-    footer: (currentPage, pageCount) => currentPage === pageCount ? ({
+    footer: (currentPage, pageCount) => ({
       columns: [
-        { stack: [{ text: "ПРИКЛЮЧЕНИЯ ПРОДОЛЖАЮТСЯ…", color: "#6757D9", bold: true, fontSize: 8 }, { text: `${currentPage} / ${pageCount}`, color: "#9A93B5", fontSize: 8, margin: [0, 5, 0, 0] }], margin: [38, 34, 0, 0] },
-        { width: 218, stack: [
-          { text: `Дата:  ${signatureDate}`, style: "signatureDate", alignment: "right" },
-          ...(progress.motherSignature ? [{ image: progress.motherSignature, width: 150, height: 48, fit: [150, 48], alignment: "right", margin: [0, 4, 0, 0] } as Content] : [{ text: "", margin: [0, 30, 0, 0] } as Content]),
-          { canvas: [{ type: "line", x1: 55, y1: 0, x2: 218, y2: 0, lineWidth: 1, lineColor: "#8178A6" }] },
-          { text: "Подпись папы", style: "signatureLabel", alignment: "right" },
-        ], margin: [0, 2, 38, 0] },
-      ],
-    }) : ({ text: `Приключения Василисы  •  ${currentPage} / ${pageCount}`, alignment: "center", color: "#9A93B5", fontSize: 8, margin: [0, 40, 0, 0] }),
-    defaultStyle: { font: "Roboto", fontSize: 10, color: "#1D2430", lineHeight: 1.25 },
+        { text: "ПРИКЛЮЧЕНИЯ ПРОДОЛЖАЮТСЯ", color: "#5D5FEF", bold: true, fontSize: 8 },
+        { text: `${currentPage} / ${pageCount}`, alignment: "right", color: "#8790A8", fontSize: 8 },
+      ], margin: [34, 22, 34, 0],
+    }),
+    defaultStyle: { font: "Roboto", fontSize: 9.5, color: "#25304A", lineHeight: 1.2 },
     styles: {
-      eyebrow: { fontSize: 8, bold: true, color: "#DCD7FF", characterSpacing: 1.4 }, title: { fontSize: 25, bold: true, color: "#FFFFFF" }, heroSubtitle: { fontSize: 10, color: "#EDEAFF" }, date: { fontSize: 11, bold: true, color: "#FFFFFF" }, heroScore: { fontSize: 17, bold: true, color: "#FFFFFF" }, heroCaption: { fontSize: 8, color: "#DCD7FF" },
-      statLabel: { fontSize: 7, bold: true, color: "#756F87", characterSpacing: .5 }, statValue: { fontSize: 17, bold: true, color: "#272238", margin: [0, 5, 0, 2] }, statSmall: { fontSize: 7, color: "#857F91", margin: [0, 3, 0, 0] }, stars: { fontSize: 10, margin: [0, 5, 0, 0] }, sectionTitle: { fontSize: 16, bold: true, color: "#352B63" }, sectionHint: { fontSize: 8, color: "#827B98", margin: [0, 5, 0, 0] },
-      step: { bold: true, fontSize: 15, color: "#332C45" }, missionKind: { bold: true, fontSize: 6, color: "#5F566E", margin: [0, 3, 0, 0] }, missionTitle: { bold: true, fontSize: 11, color: "#332C45", margin: [0, 0, 0, 4] }, detail: { fontSize: 8.5, color: "#666072" }, done: { fontSize: 7, bold: true, color: "#23834A", margin: [0, 6, 0, 0] }, missed: { fontSize: 7, bold: true, color: "#A65C3A", margin: [0, 6, 0, 0] }, rowLabel: { bold: true, fontSize: 8, color: "#514A64" }, finishStar: { fontSize: 23, bold: true, color: "#5647C6" }, finishTitle: { fontSize: 12, bold: true, color: "#5647C6", margin: [0, 0, 0, 3] }, signatureDate: { fontSize: 9, bold: true, color: "#514A64" }, signatureLabel: { fontSize: 8, color: "#8178A6", margin: [0, 3, 0, 0] },
+      eyebrow: { fontSize: 8, bold: true, color: "#5D5FEF", characterSpacing: 1.5 }, title: { fontSize: 24, bold: true, color: "#29345B" }, heroSubtitle: { fontSize: 9.5, color: "#66708A" }, date: { fontSize: 10, bold: true, color: "#5D5FEF" }, heroScore: { fontSize: 34, bold: true, color: "#FFFFFF" }, heroCaption: { fontSize: 7, bold: true, color: "#FFE8EE", characterSpacing: 1 }, scoreNote: { fontSize: 6.5, bold: true, color: "#FFFFFF" },
+      statLabel: { fontSize: 7, bold: true, color: "#66708A", characterSpacing: .7 }, statValue: { fontSize: 17, bold: true, color: "#25304A", margin: [0, 5, 0, 2] }, statSmall: { fontSize: 7.2, color: "#7B8499" }, sectionTitle: { fontSize: 16, bold: true, color: "#29345B" }, sectionHint: { fontSize: 8, color: "#7D87A1", margin: [0, 5, 0, 0] },
+      step: { bold: true, fontSize: 14, color: "#29345B" }, missionKind: { bold: true, fontSize: 5.6, color: "#77819A", margin: [0, 2, 0, 0] }, missionTitle: { bold: true, fontSize: 10.5, color: "#29345B", margin: [0, 0, 0, 3] }, detail: { fontSize: 7.8, color: "#6F7890" }, done: { fontSize: 7, bold: true, color: "#26815B", margin: [0, 7, 0, 0] }, missed: { fontSize: 7, bold: true, color: "#B26448", margin: [0, 7, 0, 0] },
+      rowLabel: { bold: true, fontSize: 7.5, color: "#56617D", characterSpacing: .4 }, rowValue: { fontSize: 8.7, color: "#303B56" }, studyLabel: { fontSize: 8, bold: true, color: "#4E5C83", margin: [12, 11, 12, 6] }, studyText: { fontSize: 7.2, color: "#606B84", margin: [12, 0, 12, 11], lineHeight: 1.15 },
+      approvalEyebrow: { fontSize: 7, bold: true, color: "#2F6DCC", characterSpacing: 1.2 }, approvalTitle: { fontSize: 19, bold: true, color: "#273B70" }, approvalText: { fontSize: 10, bold: true, color: "#4A5F8F" }, approvalMeta: { fontSize: 7.8, color: "#6F7FA3" }, signatureDate: { fontSize: 8.5, bold: true, color: "#40557F" }, signatureLabel: { fontSize: 7.5, color: "#63759D", margin: [0, 3, 0, 0] },
     },
   };
   return definition;
@@ -727,5 +777,5 @@ function SignatureModal({ initial, onCancel, onSave }: { initial: string; onCanc
   function stop(){drawing.current=false;}
   function clear(){const canvas=canvasRef.current;const context=canvas?.getContext("2d");if(canvas&&context){context.clearRect(0,0,canvas.width,canvas.height);hasInk.current=false;}}
   function save(){const canvas=canvasRef.current;if(canvas&&hasInk.current)onSave(canvas.toDataURL("image/png"));}
-  return <div className="signature-modal" role="dialog" aria-modal="true" aria-labelledby="signature-title"><div className="signature-sheet"><div className="signature-modal-title"><div><span>Подтверждение папы</span><h2 id="signature-title">Поставьте подпись пальцем</h2></div><button onClick={onCancel} aria-label="Закрыть">×</button></div><p>Расписывайтесь внутри светлого поля. Подпись сохранится только для этого дня.</p><canvas aria-label="Поле для подписи папы" ref={canvasRef} onPointerDown={start} onPointerMove={draw} onPointerUp={stop} onPointerCancel={stop}/><div className="signature-actions"><button onClick={clear}>Очистить</button><button className="save-signature" onClick={save}>Сохранить подпись</button></div></div></div>;
+  return <div className="signature-modal" role="dialog" aria-modal="true" aria-labelledby="signature-title"><div className="signature-sheet"><div className="signature-modal-title"><div><span>Подтверждение мамы</span><h2 id="signature-title">Поставьте подпись пальцем</h2></div><button onClick={onCancel} aria-label="Закрыть">×</button></div><p>Расписывайтесь внутри светлого поля. Мамина подпись сохранится только для этого дня.</p><canvas aria-label="Поле для подписи мамы" ref={canvasRef} onPointerDown={start} onPointerMove={draw} onPointerUp={stop} onPointerCancel={stop}/><div className="signature-actions"><button onClick={clear}>Очистить</button><button className="save-signature" onClick={save}>Сохранить подпись</button></div></div></div>;
 }

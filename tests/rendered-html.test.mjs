@@ -29,12 +29,24 @@ test("reading uses one compact end-page field and views survive a refresh", asyn
   assert.match(adventure, /window\.history\.replaceState/);
 });
 
-test("dad is the only named adult in the daily confirmation flow", async () => {
+test("mom owns the review and signature flow while dad keeps contacts and book bonus", async () => {
   const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
   const dailyContent = await readFile(new URL("../app/daily-content.ts", import.meta.url), "utf8");
-  assert.doesNotMatch(adventure, /мам/i);
   assert.doesNotMatch(dailyContent, /мам/i);
-  assert.match(adventure, /Подпись папы/);
-  assert.match(adventure, /Папа подтверждает бытовые миссии/);
-  assert.match(adventure, /<span>Папе<\/span>/);
+  assert.match(adventure, /Мама подтверждает бытовые миссии/);
+  assert.match(adventure, /Подпись мамы/);
+  assert.match(adventure, /<span>Маме<\/span>/);
+  assert.match(adventure, /Есть чем поделиться с папой/);
+  assert.match(adventure, /папин бонус/i);
+  assert.doesNotMatch(adventure, /Подпись папы|Папа подтверждает бытовые миссии/);
+});
+
+test("pdf uses a modern playful mom approval block and decorative blue paw seal", async () => {
+  const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
+  assert.match(adventure, /МАМИНА ПРОВЕРКА/);
+  assert.match(adventure, /МАМА ПРОВЕРИЛА/);
+  assert.match(adventure, /ИГРОВАЯ ПЕЧАТЬ/);
+  assert.match(adventure, /ТЫ УМНИЦА!/);
+  assert.match(adventure, /#2F6DCC/);
+  assert.match(adventure, /approvalSealSvg/);
 });
