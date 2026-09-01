@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { createSiteSession, safeReturnTo, secureTextEqual, SITE_SESSION_COOKIE, SITE_SESSION_TTL_SECONDS } from "../../../site-auth";
+import {
+  createSiteSession,
+  safeReturnTo,
+  secureTextEqual,
+  secureUsernameEqual,
+  SITE_SESSION_COOKIE,
+  SITE_SESSION_TTL_SECONDS,
+} from "../../../site-auth";
 
 function relativeRedirect(location: string) {
   return new NextResponse(null, {
@@ -22,7 +29,7 @@ export async function POST(request: Request) {
   const password = String(form.get("password") ?? "").slice(0, 200);
   const returnTo = safeReturnTo(String(form.get("returnTo") ?? "/"));
   const [usernameMatches, passwordMatches] = await Promise.all([
-    secureTextEqual(username, expectedUsername),
+    secureUsernameEqual(username, expectedUsername),
     secureTextEqual(password, expectedPassword),
   ]);
   if (!usernameMatches || !passwordMatches) {

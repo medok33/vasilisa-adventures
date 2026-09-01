@@ -37,6 +37,10 @@ export async function secureTextEqual(left: string, right: string) {
   return difference === 0;
 }
 
+export async function secureUsernameEqual(left: string, right: string) {
+  return secureTextEqual(left.toLowerCase(), right.toLowerCase());
+}
+
 export function safeReturnTo(value: string | null | undefined) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
   try {
