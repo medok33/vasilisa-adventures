@@ -18,3 +18,13 @@ test("child-facing feedback supports calm retries without blame styling", async 
   assert.match(adventure, /Страницы и звёзды за чтение уже сохранены/);
   assert.match(adventure, /папин бонус/i);
 });
+
+test("reading uses one compact end-page field and views survive a refresh", async () => {
+  const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
+  assert.match(adventure, /Укажи, до какой страницы ты дочитала сегодня/);
+  assert.match(adventure, /aria-label="До какой страницы дочитала сегодня"/);
+  assert.doesNotMatch(adventure, /Книга \{BOOKS\.findIndex/);
+  assert.doesNotMatch(adventure, /Начала со страницы/);
+  assert.match(adventure, /viewFromHash\(window\.location\.hash\)/);
+  assert.match(adventure, /window\.history\.replaceState/);
+});

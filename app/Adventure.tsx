@@ -93,6 +93,13 @@ const APP_TIME_ZONE = process.env.NEXT_PUBLIC_APP_TIME_ZONE || "Europe/Moscow";
 function currentDay() { return new Intl.DateTimeFormat("sv-SE", { timeZone: APP_TIME_ZONE }).format(new Date()); }
 function dayLabel(day: string) { return new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${day}T12:00:00`)); }
 function clampMoney(value: number) { return Math.max(0, Math.min(1_000_000, Math.round(value || 0))); }
+const viewHashes: Record<Exclude<View, "home">, string> = {
+  wallet: "wallet", journal: "journal", parent: "parent", morning: "morning", reading: "reading", math: "math", english: "english", order: "order", kindness: "kindness", independence: "independence",
+};
+function viewFromHash(hash: string): View {
+  const value = hash.replace(/^#/, "");
+  return (Object.entries(viewHashes).find(([, route]) => route === value)?.[0] as View | undefined) ?? "home";
+}
 
 export default function Adventure() {
   const [day] = useState(currentDay);
@@ -128,8 +135,6 @@ export default function Adventure() {
   const bookReflection = progress.bookReflections?.[readingBook.id] ?? { text: "", savedAt: "", bonusStars: 0, bonusAwardedAt: "" };
   const showBookReflection = bookFinished && (!todayReading || todayReading.finished);
   const needsBookReflection = showBookReflection && !bookReflection.savedAt;
-  const completedBooks = BOOKS.filter((book) => isBookFinished(cleanRanges(progress.bookProgress?.[book.id], book), book) && Boolean(progress.bookReflections?.[book.id]?.savedAt)).length;
-  const bookBonusStars = Object.values(progress.bookReflections ?? {}).reduce((total, reflection) => total + (reflection?.bonusStars === 10 ? 10 : 0), 0);
 
   const readingStars = readingStarCount(todayReading, progress.done.includes("reading"), day);
   const earnedStars = (() => {
@@ -141,6 +146,17 @@ export default function Adventure() {
   const tomorrowLimit = 100 + rewardBudget - savingsTransfer;
   const weekDays = useMemo(() => history.filter((item) => item.day < day).slice(0, 6), [day, history]);
   const weeklyFragments = weekDays.filter((item) => item.stars >= 7).length + (earnedStars >= 7 ? 1 : 0);
+
+  useEffect(() => {
+    const restoreView = () => setView(viewFromHash(window.location.hash));
+    restoreView();
+    window.addEventListener("hashchange", restoreView);
+    window.addEventListener("popstate", restoreView);
+    return () => {
+      window.removeEventListener("hashchange", restoreView);
+      window.removeEventListener("popstate", restoreView);
+    };
+  }, []);
 
   useEffect(() => {
     Promise.all([fetch(`/api/progress?day=${day}`), fetch(`/api/learning?day=${day}`)]).then(async ([response, learningResponse]) => {
@@ -195,6 +211,8 @@ export default function Adventure() {
   function patch(next: Partial<Progress>) { if (!closed) setProgress((current) => ({ ...current, ...next })); }
   function goTo(next: View) {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    const hash = next === "home" ? "" : `#${viewHashes[next]}`;
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}${hash}`);
     flushSync(() => setView(next));
     document.scrollingElement?.scrollTo({ top: 0, left: 0, behavior: "auto" });
     window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }));
@@ -277,7 +295,7 @@ export default function Adventure() {
   }
   function beginReading() {
     if (closed || todayReading || !readingReady) return;
-    const from = Number(progress.readingStart);
+    const from = nextReadingPage;
     const to = Number(progress.readingEnd);
     const questions = readingQuestionsForRange(readingBook, { from, to }, answeredReadingQuestions);
     setProgress((current) => {
@@ -286,6 +304,7 @@ export default function Adventure() {
       return {
         ...current,
         done: current.done.includes("reading") ? current.done : [...current.done, "reading"],
+        readingStart: String(from),
         bookProgress: { ...current.bookProgress, [readingBook.id]: merged },
         readingSession: { day, bookId: readingBook.id, from, to, minutes: current.readingMinutes, questionIds: questions.map((question) => question.id), answers: {}, finished: false },
       };
@@ -352,8 +371,9 @@ export default function Adventure() {
 
   const mathAllCorrect = mathQuestions.every((question, index) => isAnswerCorrect({ answer: question.answer }, progress.mathAnswers[index] ?? ""));
   const englishAllCorrect = englishQuestions.every((question, index) => isAnswerCorrect({ answer: question.answer }, progress.englishAnswers[index] ?? ""));
-  const readingReady = Boolean(!todayReading && progress.readingStart && progress.readingEnd && Number(progress.readingEnd) >= Number(progress.readingStart) && Number(progress.readingStart) >= Math.max(readingBook.firstPage, confirmedReadingPage + 1) && Number(progress.readingEnd) <= readingBook.lastPage);
-  const draftReadingQuestions = readingReady ? readingQuestionsForRange(readingBook, { from: Number(progress.readingStart), to: Number(progress.readingEnd) }, answeredReadingQuestions) : [];
+  const nextReadingPage = Math.max(readingBook.firstPage, confirmedReadingPage + 1);
+  const readingReady = Boolean(!todayReading && progress.readingEnd && Number(progress.readingEnd) >= nextReadingPage && Number(progress.readingEnd) <= readingBook.lastPage);
+  const draftReadingQuestions = readingReady ? readingQuestionsForRange(readingBook, { from: nextReadingPage, to: Number(progress.readingEnd) }, answeredReadingQuestions) : [];
   const readingPotential = todayReading ? readingStarCount(todayReading, true, day) : !readingReady ? 0 : progress.readingMinutes >= 20 ? 2 : 1;
 
   if (view !== "home" && view !== "wallet" && view !== "journal" && view !== "parent") {
@@ -369,12 +389,11 @@ export default function Adventure() {
             <ActionButton disabled={progress.morningChecks.length !== morningItems.length} onClick={() => complete("morning", "Утренний запуск завершён")}>Завершить утренний запуск</ActionButton>
           </>}
           {view === "reading" && <>
-            <Intro title={readingBook.title} text={needsBookReflection ? "Книга дочитана. Теперь можно сохранить свою личную книжную заметку." : todayReading ? "Страницы и звёзды за чтение уже сохранены. Иногда здесь появляется один вопрос о главной мысли отрывка." : "Укажи прочитанные сегодня страницы. Вопрос появится только на важной смысловой точке книги — не после каждого чтения."} />
-            <div className="book-status"><span>Книга {BOOKS.findIndex((book) => book.id === readingBook.id) + 1} из {BOOKS.length} · завершено {completedBooks}</span><strong>{confirmedReadingPage < readingBook.firstPage ? `Начни со страницы ${readingBook.firstPage}` : `Прочитано подряд до страницы ${confirmedReadingPage}`}</strong></div>
+            <Intro title={readingBook.title} text={needsBookReflection ? "Книга дочитана. Теперь можно сохранить свою книжную заметку." : todayReading ? "Сегодняшнее чтение уже сохранено." : "Укажи, до какой страницы ты дочитала сегодня."} />
             <details className="book-details"><summary>О книге</summary><span>Страницы издания: {readingBook.firstPage}–{readingBook.lastPage}</span><span>ISBN {readingBook.isbn}</span></details>
             {!todayReading && !needsBookReflection && <>
               <div className="reading-levels">{[{m:15,s:1,t:"Разминка"},{m:20,s:2,t:"Исследователь"},{m:30,s:2,t:"Книжный герой"}].map((level) => <button key={level.m} className={progress.readingMinutes === level.m ? "selected" : ""} onClick={() => patch({ readingMinutes: level.m })}><strong>{level.m} мин</strong><span>{level.t}</span><b>{level.s} ⭐</b></button>)}</div>
-              <div className="field-pair"><label><span>Начала со страницы</span><input inputMode="numeric" min={Math.max(readingBook.firstPage, confirmedReadingPage + 1)} max={readingBook.lastPage} value={progress.readingStart} onChange={(e) => patch({ readingStart: e.target.value })} placeholder={String(Math.max(readingBook.firstPage, confirmedReadingPage + 1))} /></label><label><span>Закончила на странице</span><input inputMode="numeric" min={readingBook.firstPage} max={readingBook.lastPage} value={progress.readingEnd} onChange={(e) => patch({ readingEnd: e.target.value })} placeholder={`до ${readingBook.lastPage}`} /></label></div>
+              <div className="reading-entry"><div><span>Сегодня начинаем</span><strong>{confirmedReadingPage < readingBook.firstPage ? "с первой страницы книги" : `со страницы ${nextReadingPage}`}</strong></div><label><span>Дочитала до</span><input aria-label="До какой страницы дочитала сегодня" inputMode="numeric" min={nextReadingPage} max={readingBook.lastPage} value={progress.readingEnd} onChange={(e) => patch({ readingEnd: e.target.value })} placeholder="№" /></label></div>
               {readingReady && <p className="reading-next-step">Страницы сохранятся сразу. Дальше будет {draftReadingQuestions.length === 1 ? "один короткий вопрос о главной мысли" : "спокойное завершение чтения без вопроса"}.</p>}
               <div className="live-result"><span>Уже за чтение</span><strong>{readingPotential} ⭐</strong>{readingPotential >= 1 && <small>На смысловой точке можно открыть ещё одну бонусную звезду.</small>}</div>
               <ActionButton disabled={!readingReady} onClick={beginReading}>Сохранить прочитанные страницы</ActionButton>
@@ -458,7 +477,7 @@ export default function Adventure() {
 
       <section className="route-section">
         <div className="route-heading"><div><p>Маршрут на сегодня</p><h2>Миссии дня</h2></div><span>Можно идти в любом порядке · каждая попытка помогает двигаться дальше</span></div>
-        <div className="route-grid">{missions.map((mission) => { const done = progress.done.includes(mission.id); const note = mission.id === "reading" ? `${readingBook.title} · завершено книг: ${completedBooks} · папины бонусы: ${bookBonusStars} ⭐` : mission.note; return <article className={`route-card ${mission.accent} ${done ? "done" : ""}`} key={mission.id}><button className="route-main" onClick={() => goTo(mission.id)}><span className="mission-number">{mission.index}</span><span className="mission-symbol"><MissionIcon id={mission.id}/></span><span className="route-copy"><small>{mission.kicker}</small><strong>{mission.title}</strong><p>{note}</p></span><span className="reward-pill">{done ? "Готово" : mission.reward}</span></button></article>; })}</div>
+        <div className="route-grid">{missions.map((mission) => { const done = progress.done.includes(mission.id); const note = mission.id === "reading" ? `${readingBook.title} · чтение в своём темпе` : mission.note; return <article className={`route-card ${mission.accent} ${done ? "done" : ""}`} key={mission.id}><button className="route-main" onClick={() => goTo(mission.id)}><span className="mission-number">{mission.index}</span><span className="mission-symbol"><MissionIcon id={mission.id}/></span><span className="route-copy"><small>{mission.kicker}</small><strong>{mission.title}</strong><p>{note}</p></span><span className="reward-pill">{done ? "Готово" : mission.reward}</span></button></article>; })}</div>
       </section>
 
       <section className="bottom-cards">

@@ -150,10 +150,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .primary-action:active { transform: scale(.99); }
 .primary-action:disabled { color: #9d9da2; background: #e9e9ed; box-shadow: none; cursor: not-allowed; }
 .reading-levels { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin: 16px 0; }
-.book-status { margin: 14px 0 4px; padding: 14px 16px; border-radius: 16px; background: #f0fbf7; border: 1px solid #ccefe2; display: grid; gap: 3px; }
-.book-status span,.book-status small { color: var(--muted); font-size: 11px; }
-.book-status strong { color: #165d4a; font-size: 15px; }
-.book-status p { margin: 5px 0 0; color: #377364; font-size: 12px; }
 .field-warning { margin: 9px 0 0; color: #a85c14; font-size: 12px; }
 .reading-levels button { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 13px 14px; border: 1px solid var(--line); border-radius: 15px; background: #fff; text-align: left; cursor: pointer; }
 .reading-levels button.selected { border-color: transparent; background: var(--soft); box-shadow: inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent); }
@@ -166,6 +162,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .field-pair input,.long-field textarea,.parent-fields input { width: 100%; border: 1px solid transparent; border-radius: 14px; background: #f5f5f7; color: var(--ink); transition: background .15s ease,box-shadow .15s ease; }
 .field-pair input:focus,.long-field textarea:focus,.parent-fields input:focus { background: #fff; box-shadow: inset 0 0 0 1px rgba(0,113,227,.24); }
 .field-pair input { height: 51px; padding: 0 14px; }
+.reading-entry { display: grid; grid-template-columns: 1fr 128px; align-items: end; gap: 14px; margin: 18px 0; padding: 15px 16px; border: 1px solid #d6eee5; border-radius: 17px; background: linear-gradient(135deg,#f0fbf7,#fbfffd); }
+.reading-entry>div,.reading-entry label { display: flex; flex-direction: column; gap: 5px; }
+.reading-entry span { color: var(--muted); font-size: 10px; font-weight: 650; }
+.reading-entry strong { color: #165d4a; font-size: 16px; letter-spacing: -.02em; }
+.reading-entry input { width: 100%; height: 43px; padding: 0 11px; border: 1px solid #cbe6dc; border-radius: 12px; outline: 0; background: #fff; color: var(--ink); font-size: 16px; font-weight: 720; transition: border-color .15s ease,box-shadow .15s ease; }
+.reading-entry input:focus { border-color: #71bca4; box-shadow: 0 0 0 3px rgba(19,138,106,.1); }
 .long-field textarea { min-height: 116px; padding: 14px; resize: vertical; }
 .long-field.optional { margin: 18px 0; }
 .long-field em { color: #9a9a9f; font-weight: 400; }
@@ -261,9 +263,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .mood-row button:hover { transform: translateY(-2px); }
 .mood-row button.selected { border-color: transparent; background: #eaf4ff; box-shadow: inset 0 0 0 1px rgba(0,113,227,.2),0 8px 20px rgba(0,113,227,.09); }
 .mood-row button.selected .mood-icon { transform: scale(1.08); filter: drop-shadow(0 4px 7px rgba(0,113,227,.2)); }
-.book-status { display: flex; flex-direction: column; gap: 4px; margin: 0 0 18px; padding: 16px 18px; border: 1px solid #dceadf; border-radius: 18px; background: linear-gradient(135deg,#f3fbf5,#fff); }
-.book-status span,.book-status small { color: var(--muted); font-size: 11px; }
-.book-status strong { font-size: 17px; }
 .book-details { margin: -8px 0 14px; padding: 0 4px; color: var(--muted); font-size: 10px; }
 .book-details summary { width: max-content; color: var(--accent); font-weight: 700; cursor: pointer; }
 .book-details span { display: block; margin-top: 5px; }
@@ -524,6 +523,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .reading-question { margin: 14px 0; padding: 14px; border-radius: 15px; }
   .reading-options button { min-height: 43px; padding: 10px 11px; }
   .reading-saved-range,.reading-finished { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .reading-entry { grid-template-columns: 1fr 105px; gap: 10px; padding: 13px 14px; }
   .field-pair,.parent-fields { grid-template-columns: 1fr; }
   .math-list label { grid-template-columns: 1fr 90px; }
   .learning-assist { grid-column: 1/-1; justify-items:start; }
