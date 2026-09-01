@@ -41,12 +41,20 @@ test("mom owns the review and signature flow while dad keeps contacts and book b
   assert.doesNotMatch(adventure, /Подпись папы|Папа подтверждает бытовые миссии/);
 });
 
-test("pdf uses a modern playful mom approval block and decorative blue paw seal", async () => {
+test("signed mom report uses a clean download label and document seal without a paw", async () => {
   const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
-  assert.match(adventure, /МАМИНА ПРОВЕРКА/);
-  assert.match(adventure, /МАМА ПРОВЕРИЛА/);
-  assert.match(adventure, /ИГРОВАЯ ПЕЧАТЬ/);
-  assert.match(adventure, /ТЫ УМНИЦА!/);
-  assert.match(adventure, /#2F6DCC/);
+  const seal = adventure.slice(adventure.indexOf("function approvalSealSvg"), adventure.indexOf("export function buildDayPdfDefinition"));
+  const pdf = adventure.slice(adventure.indexOf("export function buildDayPdfDefinition"), adventure.indexOf("async function downloadDayPdf"));
+  assert.match(adventure, /Заверено мамой/);
+  assert.match(adventure, /Скачать отчёт/);
+  assert.doesNotMatch(adventure, /Мамин отчёт готов|Скачать красивый PDF|Современный дневник приключений с маминой подписью и синей печатью/);
+  assert.match(seal, /ОБЩЕСТВО С ОГРАНИЧЕННОЙ/);
+  assert.match(seal, /ОТВЕТСТВЕННОСТЬЮ «СЛОВОМАМЫ» · Г\. КОВРОВ/);
+  assert.match(seal, />ДЛЯ</);
+  assert.match(seal, />ДОКУМЕНТОВ</);
+  assert.doesNotMatch(seal, /ellipse|лап|МАМА ПРОВЕРИЛА|ИГРОВАЯ ПЕЧАТЬ|ТЫ УМНИЦА/);
+  assert.doesNotMatch(pdf, /Мой волшебный день|НАСТРОЕНИЕ|МОЯ ПОБЕДА|БЫЛО НЕПРОСТО|МАМИНА ПРОВЕРКА|Мама проверила маршрут|Подпись мамы|Дата:/);
+  assert.match(pdf, /День принят!/);
+  assert.match(pdf, /Каждая попытка - это новый шаг вперёд!/);
   assert.match(adventure, /approvalSealSvg/);
 });

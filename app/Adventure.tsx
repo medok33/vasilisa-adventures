@@ -610,7 +610,7 @@ function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, s
     <button className="money-review-link" onClick={onOpenWallet}><span className="screen-icon wallet"><NavIcon name="wallet"/></span><div><small>Распределение награды</small><strong>Траты и копилка</strong><p>{tomorrowLimit} ₽ завтра · +{transfer} ₽ на банковский счёт</p></div><b>Открыть →</b></button>
     <section className={`signature-card ${progress.motherSignature ? "signed" : ""}`}><div><span>Подпись мамы</span><h2>{progress.motherSignature ? "День проверен" : "Нужна перед закрытием дня"}</h2><p>{progress.motherSignature ? "Мамина подпись сохранена вместе с итогом дня." : "Нажмите кнопку — откроется большое поле, где мама сможет расписаться пальцем."}</p></div>{progress.motherSignature && <img src={progress.motherSignature} alt="Сохранённая подпись мамы"/>}<button disabled={closed} onClick={() => setSignatureOpen(true)}>{progress.motherSignature ? "Подписать заново" : "Маме расписаться"}</button></section>
     <button className={`close-day ${closed ? "reopen" : ""}`} onClick={closed ? onReopenDay : confirm}>{closed ? "Открыть день для исправления" : "Подтвердить и закрыть день"}</button>
-    {closed && progress.motherSignature && <section className="pdf-report-card"><span className="pdf-emblem">PDF</span><div><strong>Мамин отчёт готов</strong><p>Современный дневник приключений с маминой подписью и синей печатью.</p></div><button onClick={makePdf} disabled={pdfState === "building"}>{pdfState === "building" ? "Собираю…" : "Скачать красивый PDF"}</button>{pdfState === "error" && <small>Не получилось собрать файл. Попробуйте ещё раз.</small>}</section>}
+    {closed && progress.motherSignature && <section className="pdf-report-card"><span className="pdf-emblem">PDF</span><div><strong>Заверено мамой</strong></div><button onClick={makePdf} disabled={pdfState === "building"}>{pdfState === "building" ? "Собираю…" : "Скачать отчёт"}</button>{pdfState === "error" && <small>Не получилось собрать файл. Попробуйте ещё раз.</small>}</section>}
     <p className="parent-note">После закрытия задания нельзя менять, выбранная сумма попадёт в копилку, а новый лимит откроется завтра.</p>
     {signatureOpen && <SignatureModal initial={progress.motherSignature} onCancel={() => setSignatureOpen(false)} onSave={(signature) => { patch({ motherSignature: signature, signedAt: new Date().toISOString() }); setSignatureOpen(false); }}/>} 
   </main>;
@@ -618,16 +618,19 @@ function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, s
 
 function approvalSealSvg() {
   return `<svg width="140" height="140" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="70" cy="70" r="62" fill="#F4F8FF" stroke="#2F6DCC" stroke-width="4"/>
-    <circle cx="70" cy="70" r="53" fill="none" stroke="#2F6DCC" stroke-width="2" stroke-dasharray="4 4"/>
-    <text x="70" y="31" text-anchor="middle" font-family="Roboto" font-size="10" font-weight="700" fill="#2F6DCC">МАМА ПРОВЕРИЛА</text>
-    <text x="70" y="45" text-anchor="middle" font-family="Roboto" font-size="6" font-weight="700" letter-spacing="1" fill="#5C8BD8">ИГРОВАЯ ПЕЧАТЬ</text>
-    <ellipse cx="70" cy="79" rx="18" ry="15" fill="#2F6DCC"/>
-    <ellipse cx="51" cy="62" rx="7" ry="9" transform="rotate(-28 51 62)" fill="#2F6DCC"/>
-    <ellipse cx="63" cy="55" rx="7" ry="9" transform="rotate(-8 63 55)" fill="#2F6DCC"/>
-    <ellipse cx="77" cy="55" rx="7" ry="9" transform="rotate(8 77 55)" fill="#2F6DCC"/>
-    <ellipse cx="89" cy="62" rx="7" ry="9" transform="rotate(28 89 62)" fill="#2F6DCC"/>
-    <text x="70" y="113" text-anchor="middle" font-family="Roboto" font-size="10" font-weight="700" fill="#2F6DCC">ТЫ УМНИЦА!</text>
+    <defs>
+      <path id="sealTop" d="M 16 72 A 54 54 0 0 1 124 72"/>
+      <path id="sealBottom" d="M 16 79 A 54 54 0 0 0 124 79"/>
+    </defs>
+    <circle cx="70" cy="70" r="63" fill="#F7FAFF" fill-opacity="0.72" stroke="#245AA8" stroke-width="3"/>
+    <circle cx="70" cy="70" r="57" fill="none" stroke="#245AA8" stroke-width="1.2"/>
+    <circle cx="70" cy="70" r="39" fill="none" stroke="#245AA8" stroke-width="1.8"/>
+    <text font-family="Roboto" font-size="6.5" font-weight="700" letter-spacing="0.35" fill="#245AA8"><textPath href="#sealTop" startOffset="50%" text-anchor="middle">ОБЩЕСТВО С ОГРАНИЧЕННОЙ</textPath></text>
+    <text font-family="Roboto" font-size="5.8" font-weight="700" letter-spacing="0.25" fill="#245AA8"><textPath href="#sealBottom" startOffset="50%" text-anchor="middle">ОТВЕТСТВЕННОСТЬЮ «СЛОВОМАМЫ» · Г. КОВРОВ</textPath></text>
+    <text x="70" y="63" text-anchor="middle" font-family="Roboto" font-size="12" font-weight="700" fill="#245AA8">ДЛЯ</text>
+    <text x="70" y="79" text-anchor="middle" font-family="Roboto" font-size="12" font-weight="700" fill="#245AA8">ДОКУМЕНТОВ</text>
+    <circle cx="15" cy="70" r="2.4" fill="#245AA8"/>
+    <circle cx="125" cy="70" r="2.4" fill="#245AA8"/>
   </svg>`;
 }
 
@@ -658,21 +661,19 @@ export function buildDayPdfDefinition({ day, progress, stars, tomorrowLimit, rew
         widths: [7, 38, "*", 64],
         body: [[
           { text: "", fillColor: missionColors[index] },
-          { stack: [{ text: String(index + 1).padStart(2, "0"), style: "step" }, { text: missionKinds[index], style: "missionKind" }], fillColor: "#FFFFFF" },
-          { stack: [{ text: mission.title, style: "missionTitle" }, { text: missionDetails[mission.id], style: "detail" }], fillColor: "#FFFFFF" },
-          { text: complete ? "ГОТОВО" : "ВПЕРЕДИ", style: complete ? "done" : "missed", alignment: "center", fillColor: complete ? "#E9FBF4" : "#FFF2EC" },
+          { stack: [{ text: String(index + 1).padStart(2, "0"), style: "step" }, { text: missionKinds[index], style: "missionKind" }] },
+          { stack: [{ text: mission.title, style: "missionTitle" }, { text: missionDetails[mission.id], style: "detail" }] },
+          { text: complete ? "ГОТОВО" : "ВПЕРЕДИ", style: complete ? "done" : "missed", alignment: "right" },
         ]],
       },
       layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 8, paddingBottom: () => 8 },
     };
   });
   const checkedAt = progress.signedAt ? new Date(progress.signedAt).toLocaleString("ru-RU", { timeZone: APP_TIME_ZONE, dateStyle: "long", timeStyle: "short" }) : dayLabel(day);
-  const signatureDate = progress.signedAt ? new Date(progress.signedAt).toLocaleDateString("ru-RU", { timeZone: APP_TIME_ZONE }) : new Date(`${day}T12:00:00`).toLocaleDateString("ru-RU");
   const progressDots = Array.from({ length: 10 }, (_, index) => ({ type: "ellipse" as const, x: 4 + index * 12, y: 6, r1: 3.6, r2: 3.6, color: index < stars ? "#FFB12A" : "#DDE3F2" }));
-  const motivation = stars >= 8 ? "Ты сегодня сияла особенно ярко!" : stars >= 5 ? "Шаг за шагом ты становишься увереннее!" : "Каждая попытка - это новый шаг вперёд!";
   const signatureContent: Content[] = progress.motherSignature
-    ? [{ image: progress.motherSignature, width: 145, height: 46, fit: [145, 46], alignment: "center", margin: [0, 7, 0, 0] }]
-    : [{ text: "", margin: [0, 35, 0, 0] }];
+    ? [{ image: progress.motherSignature, width: 128, height: 42, fit: [128, 42], alignment: "left", margin: [5, 13, 0, 0] }]
+    : [{ text: "", margin: [0, 42, 0, 0] }];
   const definition: TDocumentDefinitions = {
     pageSize: "A4",
     pageMargins: [34, 34, 34, 54],
@@ -707,32 +708,21 @@ export function buildDayPdfDefinition({ day, progress, stars, tomorrowLimit, rew
       ]] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 12, paddingRight: () => 12, paddingTop: () => 12, paddingBottom: () => 12 }, margin: [0, 0, 0, 17] },
       { columns: [{ text: "Маршрут дня", style: "sectionTitle" }, { text: "7 шагов большого приключения", style: "sectionHint", alignment: "right" }], margin: [0, 0, 0, 9] },
       ...missionContent,
-      { text: "Мой волшебный день", style: "sectionTitle", pageBreak: "before", margin: [0, 0, 0, 9] },
-      { table: { widths: [116, "*"], body: [
-        [{ text: "НАСТРОЕНИЕ", style: "rowLabel", fillColor: "#EEEAFE" }, { text: moods.find((m) => m.id === progress.mood)?.label || "Пока не выбрано", style: "rowValue", fillColor: "#FAF9FF" }],
-        [{ text: "МОЯ ПОБЕДА", style: "rowLabel", fillColor: "#E2F8F0" }, { text: progress.goodThing || "Нет записи", style: "rowValue", fillColor: "#F8FFFC" }],
-        [{ text: "БЫЛО НЕПРОСТО", style: "rowLabel", fillColor: "#FFF0DB" }, { text: progress.hardThing || "Нет записи", style: "rowValue", fillColor: "#FFFCF8" }],
-        [{ text: "ПАПЕ", style: "rowLabel", fillColor: "#E6F0FF" }, { text: progress.dadNote || "Нет записи", style: "rowValue", fillColor: "#F8FBFF" }],
-      ] }, layout: { hLineWidth: () => 4, vLineWidth: () => 4, hLineColor: () => "#FFF9F3", vLineColor: () => "#FFF9F3", paddingLeft: () => 11, paddingRight: () => 11, paddingTop: () => 10, paddingBottom: () => 10 }, margin: [0, 0, 0, 15] },
       { columns: [
         { width: "*", stack: [{ text: "МАТЕМАТИКА", style: "studyLabel" }, { text: answerLine(mathQuestions, progress.mathAnswers), style: "studyText" }], margin: [0, 0, 7, 0], fillColor: "#F2F7FF" },
         { width: "*", stack: [{ text: "ENGLISH", style: "studyLabel" }, { text: answerLine(englishQuestions, progress.englishAnswers), style: "studyText" }], margin: [7, 0, 0, 0], fillColor: "#FFF1F3" },
-      ], columnGap: 0, margin: [0, 0, 0, 16] },
-      { unbreakable: true, table: { widths: ["*", 192], body: [[
+      ], columnGap: 0, pageBreak: "before", margin: [0, 8, 0, 22] },
+      { unbreakable: true, table: { widths: ["*", 205], body: [[
         { stack: [
-          { text: "МАМИНА ПРОВЕРКА", style: "approvalEyebrow" },
-          { text: "День принят!", style: "approvalTitle", margin: [0, 7, 0, 5] },
-          { text: motivation, style: "approvalText" },
-          { text: `Мама проверила маршрут: ${checkedAt}`, style: "approvalMeta", margin: [0, 13, 0, 0] },
-        ], fillColor: "#EAF2FF" },
+          { text: "День принят!", style: "approvalTitle", margin: [0, 2, 0, 7] },
+          { text: "Каждая попытка - это новый шаг вперёд!", style: "approvalText" },
+          { text: checkedAt, style: "approvalMeta", margin: [0, 16, 0, 0] },
+        ] },
         { stack: [
-          { text: `Дата: ${signatureDate}`, style: "signatureDate", alignment: "center" },
           ...signatureContent,
-          { canvas: [{ type: "line", x1: 14, y1: 0, x2: 158, y2: 0, lineWidth: 1.2, lineColor: "#4C68A8" }] },
-          { text: "Подпись мамы", style: "signatureLabel", alignment: "center" },
-          { svg: approvalSealSvg(), width: 88, alignment: "right", relativePosition: { x: 8, y: -79 }, margin: [0, 0, 0, -70] },
-        ], fillColor: "#F7FAFF" },
-      ]] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 15, paddingRight: () => 15, paddingTop: () => 14, paddingBottom: () => 14 }, margin: [0, 0, 0, 0] },
+          { svg: approvalSealSvg(), width: 116, alignment: "right", relativePosition: { x: 8, y: -78 }, margin: [0, 0, 0, -70] },
+        ] },
+      ]] }, layout: { hLineWidth: (index) => index === 0 ? 1.5 : 0, vLineWidth: () => 0, hLineColor: () => "#D7E3F7", paddingLeft: () => 18, paddingRight: () => 18, paddingTop: () => 20, paddingBottom: () => 12 }, margin: [0, 0, 0, 0] },
     ],
     footer: (currentPage, pageCount) => ({
       columns: [
@@ -745,8 +735,8 @@ export function buildDayPdfDefinition({ day, progress, stars, tomorrowLimit, rew
       eyebrow: { fontSize: 8, bold: true, color: "#5D5FEF", characterSpacing: 1.5 }, title: { fontSize: 24, bold: true, color: "#29345B" }, heroSubtitle: { fontSize: 9.5, color: "#66708A" }, date: { fontSize: 10, bold: true, color: "#5D5FEF" }, heroScore: { fontSize: 34, bold: true, color: "#FFFFFF" }, heroCaption: { fontSize: 7, bold: true, color: "#FFE8EE", characterSpacing: 1 }, scoreNote: { fontSize: 6.5, bold: true, color: "#FFFFFF" },
       statLabel: { fontSize: 7, bold: true, color: "#66708A", characterSpacing: .7 }, statValue: { fontSize: 17, bold: true, color: "#25304A", margin: [0, 5, 0, 2] }, statSmall: { fontSize: 7.2, color: "#7B8499" }, sectionTitle: { fontSize: 16, bold: true, color: "#29345B" }, sectionHint: { fontSize: 8, color: "#7D87A1", margin: [0, 5, 0, 0] },
       step: { bold: true, fontSize: 14, color: "#29345B" }, missionKind: { bold: true, fontSize: 5.6, color: "#77819A", margin: [0, 2, 0, 0] }, missionTitle: { bold: true, fontSize: 10.5, color: "#29345B", margin: [0, 0, 0, 3] }, detail: { fontSize: 7.8, color: "#6F7890" }, done: { fontSize: 7, bold: true, color: "#26815B", margin: [0, 7, 0, 0] }, missed: { fontSize: 7, bold: true, color: "#B26448", margin: [0, 7, 0, 0] },
-      rowLabel: { bold: true, fontSize: 7.5, color: "#56617D", characterSpacing: .4 }, rowValue: { fontSize: 8.7, color: "#303B56" }, studyLabel: { fontSize: 8, bold: true, color: "#4E5C83", margin: [12, 11, 12, 6] }, studyText: { fontSize: 7.2, color: "#606B84", margin: [12, 0, 12, 11], lineHeight: 1.15 },
-      approvalEyebrow: { fontSize: 7, bold: true, color: "#2F6DCC", characterSpacing: 1.2 }, approvalTitle: { fontSize: 19, bold: true, color: "#273B70" }, approvalText: { fontSize: 10, bold: true, color: "#4A5F8F" }, approvalMeta: { fontSize: 7.8, color: "#6F7FA3" }, signatureDate: { fontSize: 8.5, bold: true, color: "#40557F" }, signatureLabel: { fontSize: 7.5, color: "#63759D", margin: [0, 3, 0, 0] },
+      studyLabel: { fontSize: 8, bold: true, color: "#4E5C83", margin: [12, 11, 12, 6] }, studyText: { fontSize: 7.2, color: "#606B84", margin: [12, 0, 12, 11], lineHeight: 1.15 },
+      approvalTitle: { fontSize: 19, bold: true, color: "#273B70" }, approvalText: { fontSize: 10, bold: true, color: "#4A5F8F" }, approvalMeta: { fontSize: 8.2, color: "#6F7FA3" },
     },
   };
   return definition;
