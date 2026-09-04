@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -26,6 +26,40 @@ test("VDS store persists assignments and every correction attempt", async () => 
     const wordOrder = store.getOrCreateAssignments("2026-09-10").english.find((item) => item.kind === "word_order");
     assert.ok(wordOrder, "tappable word-order kind survives the SQLite compatibility layer");
     assert.ok(wordOrder.options.length >= 3);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("stored word-order prompts from the old generator become tappable without rewriting history", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "vasilisa-legacy-word-order-"));
+  process.env.DATA_DIR = directory;
+  await writeFile(path.join(directory, "progress.json"), JSON.stringify({
+    days: {
+      "2026-09-04": {
+        payload: {
+          learningHistory: {
+            english: {
+              oldOrder: {
+                skill: "word_order",
+                level: 1,
+                prompt: "Собери фразу: book / this / I / like",
+                expectedAnswer: "I like this book",
+                attempts: [],
+              },
+            },
+          },
+        },
+      },
+    },
+  }));
+  try {
+    const store = await import(`../vds/learning-store.ts?test=${Date.now()}-legacy-order`);
+    const [question] = store.getOrCreateAssignments("2026-09-04").english;
+    assert.equal(question.kind, "word_order");
+    assert.equal(question.label, "Собери предложение из слов");
+    assert.deepEqual(question.options, ["book", "this", "I", "like"]);
+    assert.equal(question.answer, "I like this book");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

@@ -202,6 +202,11 @@ function assignmentRows(database: DatabaseSync, day: string) {
 }
 
 function publicQuestion(row: AssignmentRow): LearningQuestion {
+  const storedOptions = JSON.parse(row.options_json || "[]") as string[];
+  const isWordOrder = row.skill === "word_order" || row.template_id.startsWith("sr4-en-order-");
+  const promptOptions = row.prompt.includes(":")
+    ? row.prompt.slice(row.prompt.indexOf(":") + 1).split("/").map((word) => word.trim()).filter(Boolean)
+    : row.expected_answer.split(" ").filter(Boolean);
   return {
     id: row.assignment_id,
     subject: row.subject,
@@ -210,12 +215,12 @@ function publicQuestion(row: AssignmentRow): LearningQuestion {
     level: row.level,
     role: row.role === "legacy" ? "current" : row.role,
     templateId: row.template_id,
-    label: row.prompt,
+    label: isWordOrder && storedOptions.length === 0 ? "Собери предложение из слов" : row.prompt,
     answer: row.expected_answer,
-    kind: row.template_id.startsWith("sr4-en-order-") ? "word_order" : row.kind,
-    options: JSON.parse(row.options_json || "[]"),
+    kind: isWordOrder ? "word_order" : row.kind,
+    options: isWordOrder && storedOptions.length === 0 ? promptOptions : storedOptions,
     hint: row.hint,
-    icon: row.icon || undefined,
+    icon: row.icon || (isWordOrder ? "🧩" : undefined),
     fingerprint: row.fingerprint,
   };
 }
