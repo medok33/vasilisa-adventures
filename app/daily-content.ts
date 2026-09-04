@@ -87,12 +87,12 @@ const secrets = [
 
 export function dailyContent(day: string): DailyContent {
   const random = randomFor(`vasilisa:${day}`);
-  const a = 20 + Math.floor(random() * 70);
-  const b = 10 + Math.floor(random() * 50);
-  const factorA = 2 + Math.floor(random() * 8);
+  const a = 100 + Math.floor(random() * 800);
+  const b = 50 + Math.floor(random() * 350);
+  const factorA = 12 + Math.floor(random() * 38);
   const factorB = 2 + Math.floor(random() * 8);
   const divisor = 2 + Math.floor(random() * 8);
-  const quotient = 2 + Math.floor(random() * 9);
+  const quotient = 10 + Math.floor(random() * 70);
   const price = (3 + Math.floor(random() * 7)) * 10;
   const paid = price + (2 + Math.floor(random() * 6)) * 10;
   const math: MathQuestion[] = [
@@ -100,9 +100,9 @@ export function dailyContent(day: string): DailyContent {
     { id: `${day}-diff`, label: `${a + b + 20} − ${b}`, answer: String(a + 20) },
     { id: `${day}-multiply`, label: `${factorA} × ${factorB}`, answer: String(factorA * factorB) },
     { id: `${day}-divide`, label: `${divisor * quotient} ÷ ${divisor}`, answer: String(quotient) },
-    { id: `${day}-story`, label: `Покупка стоит ${price} ₽. Дали ${paid} ₽. Сколько сдачи?`, answer: String(paid - price) },
+    { id: `${day}-story`, label: `Книга стоит ${price} ₽, а блокнот — 20 ₽. Дали ${paid + 20} ₽. Сколько сдачи?`, answer: String(paid - price) },
   ];
-  const chosenWords = pick(words, random, 5);
+  const chosenWords = pick(words, random, 4);
   const phrase = pick(phrases, random, 1)[0];
   const english: EnglishQuestion[] = chosenWords.map(([icon, label, answer, wrong], index) => ({
     id: `${day}-word-${index}`, icon, label, answer, options: options(answer, [...wrong], random),

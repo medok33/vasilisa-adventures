@@ -184,6 +184,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .learning-assist{display:grid;justify-items:end;gap:6px}
 .learning-assist>b{font-size:9px;text-align:right}
 .learning-assist .learning-hint-text{text-align:right}
+.learning-profile { display: grid; gap: 5px; margin: 16px 0 20px; padding: 16px 18px; border: 1px solid #dbe9f8; border-radius: 18px; background: linear-gradient(135deg,#f3f8ff,#fbfdff); }
+.learning-profile span { color: #4272a7; font-size: 9px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.learning-profile strong { color: #294f79; font-size: 15px; }
+.learning-profile p { margin: 0; color: #5f748a; font-size: 11px; line-height: 1.55; }
 .math-list label.correct,.english-list article.correct { border-color: transparent; background: #effaf3; box-shadow: inset 0 0 0 1px rgba(52,199,89,.22); }
 .math-list label.correct>b,.correct>small { color: #218442; }
 .math-list label.retry,.english-list article.retry { border-color: transparent; background: #f3f7ff; box-shadow: inset 0 0 0 1px rgba(54,116,196,.16); }
@@ -196,6 +200,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .word-options { display: flex; flex-wrap: wrap; gap: 7px; }
 .word-options button { padding: 9px 13px; border: 1px solid var(--line); border-radius: 11px; background: #fff; cursor: pointer; }
 .word-options button.chosen { border-color: transparent; color: var(--accent); background: var(--soft); box-shadow: inset 0 0 0 1px color-mix(in srgb,var(--accent) 24%,transparent); font-weight: 700; }
+.word-builder { display: grid; gap: 10px; }
+.word-sentence { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; min-height: 51px; padding: 9px 11px; border: 1px dashed #bdcbe0; border-radius: 14px; background: #f7faff; }
+.word-sentence>span { color: #8591a3; font-size: 11px; }
+.word-sentence button,.word-bank button { padding: 9px 12px; border: 1px solid #d7deea; border-radius: 11px; background: #fff; color: #303b4c; cursor: pointer; }
+.word-sentence button { border-color: #a8c4e7; color: #285f98; background: #eef6ff; }
+.word-bank { display: flex; flex-wrap: wrap; gap: 7px; }
+.word-bank button:disabled { opacity: .34; cursor: default; }
 .english-list article>small { display: block; margin-top: 10px; font-weight: 650; }
 .feedback { margin: 14px 0; padding: 14px 16px; border-radius: 15px; color: #466889; background: #f2f7fc; font-size: 11px; line-height: 1.5; }
 .timer-card { display: flex; align-items: center; gap: 16px; margin: 20px 0; padding: 18px; border-radius: 18px; color: #75530e; background: #fff5dc; }

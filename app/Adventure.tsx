@@ -6,7 +6,7 @@ import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
 import { BOOKS, cleanBookReflections, cleanRanges, continuousPage, getBook, getReadingQuestion, isBookFinished, isCurrentReadingCorrect, isReadingAnswerCorrect, mergeRanges, nextBook, readingQuestionsForRange, readingStarCount, type BookId, type BookProgress, type BookReflections, type DailyReadingSession } from "./books";
 import { dailyContent } from "./daily-content";
 import { emptyLearningHistory, recordLearningAttempt, type LearningHistory, type LearningSubject } from "./learning-history";
-import { isAnswerCorrect, type LearningQuestion } from "./learning-system";
+import { EDUCATION_PROFILE, isAnswerCorrect, type LearningQuestion } from "./learning-system";
 
 type MissionId = "morning" | "reading" | "math" | "english" | "order" | "kindness" | "independence";
 type View = "home" | "wallet" | "journal" | "parent" | MissionId;
@@ -68,8 +68,8 @@ type Mission = {
 const missions: Mission[] = [
   { id: "morning", index: "01", kicker: "Начало дня", title: "Утренний запуск", note: "4 простых шага для бодрого старта", reward: "1 ⭐", accent: "sun" },
   { id: "reading", index: "02", kicker: "Главный квест", title: "Изумрудная книга", note: "Чтение, страницы и вопрос по сюжету", reward: "до 3 ⭐", accent: "mint" },
-  { id: "math", index: "03", kicker: "Тренировка", title: "Шифр экспедиции", note: "5 задач уровня 3-го класса", reward: "2 ⭐", accent: "blue" },
-  { id: "english", index: "04", kicker: "Разведка", title: "Слова вокруг нас", note: "5 слов и одна короткая фраза", reward: "1 ⭐", accent: "coral" },
+  { id: "math", index: "03", kicker: "Тренировка", title: "Шифр экспедиции", note: "До 5 коротких заданий для повторения", reward: "2 ⭐", accent: "blue" },
+  { id: "english", index: "04", kicker: "Разведка", title: "Слова вокруг нас", note: "До 5 коротких заданий без перегруза", reward: "1 ⭐", accent: "coral" },
   { id: "order", index: "05", kicker: "Домашняя миссия", title: "Пять минут порядка", note: "Комната, стол, одежда и обувь", reward: "1 ⭐", accent: "amber" },
   { id: "kindness", index: "06", kicker: "Секретная миссия", title: "Заметить другого", note: "Выбери одно настоящее доброе дело", reward: "1 ⭐", accent: "rose" },
   { id: "independence", index: "07", kicker: "Суперспособность", title: "Без напоминания", note: "Что сегодня получилось сделать самой?", reward: "1 ⭐", accent: "violet" },
@@ -77,7 +77,7 @@ const missions: Mission[] = [
 
 const emptyProgress: Progress = {
   done: [], morningChecks: [], readingStart: "", readingEnd: "", readingMinutes: 15, readingAnswer: "", readingBook: "emerald", bookProgress: {}, bookReflections: {}, readingQuestionAnswers: {}, readingSession: null,
-  mathAnswers: ["", "", "", "", ""], mathAttempts: 0, englishAnswers: ["", "", "", "", "", ""], englishAttempts: 0, learningHistory: emptyLearningHistory(), learningHints: {}, orderChecks: [],
+  mathAnswers: ["", "", "", "", ""], mathAttempts: 0, englishAnswers: ["", "", "", "", ""], englishAttempts: 0, learningHistory: emptyLearningHistory(), learningHints: {}, orderChecks: [],
   kindnessChoice: "", kindnessNote: "", independenceChoice: "", independenceNote: "", mood: "", goodThing: "", hardThing: "", dadNote: "", dadNotifiedText: "", dadNotifiedAt: "",
   balance: 0, goalTitle: "", goalAmount: 0, reserveStar: false, decision: "",
   savingsTransfer: 0, savingsApplied: false, motherSignature: "", signedAt: "",
@@ -118,8 +118,8 @@ export default function Adventure() {
   const [dadContacts, setDadContacts] = useState<DadContacts | null>(null);
   const questionStartedAt = useRef<Record<string, number>>({});
   const content = useMemo(() => dailyContent(day), [day]);
-  const mathQuestions = learningAssignments?.math ?? [];
-  const englishQuestions = learningAssignments?.english ?? [];
+  const mathQuestions = (learningAssignments?.math ?? []).slice(0, 5);
+  const englishQuestions = (learningAssignments?.english ?? []).slice(0, 5);
   const orderItems = useMemo(() => content.order.map((label, index) => [`daily-${index}`, label]), [content.order]);
   const todayReading = progress.readingSession?.day === day ? progress.readingSession : null;
   const readingBook = getBook(todayReading?.bookId ?? progress.readingBook);
@@ -411,18 +411,20 @@ export default function Adventure() {
             {showBookReflection && Boolean(bookReflection.savedAt) && nextBook(readingBook.id) && <button className="next-book" onClick={() => { patch({ readingBook: nextBook(readingBook.id)!.id, readingStart: "", readingEnd: "", readingAnswer: "" }); goTo("home"); }}>Следующая книга: «{nextBook(readingBook.id)!.title}» →</button>}
           </>}
           {view === "math" && <>
-            <Intro title="Введи код экспедиции" text="Решай в своём темпе. Ответы можно менять столько раз, сколько захочется." />
+            <Intro title="Введи код экспедиции" text="До пяти коротких заданий для повторения. Решай в своём темпе и меняй ответы столько раз, сколько захочется." />
+            <LearningProfile />
             {!learningAssignments && saveState === "offline" && <Feedback>Учебные задания пока не загрузились. Проверь связь и обнови страницу — ответы не потеряются.</Feedback>}
             <div className="math-list">{mathQuestions.map((question, index) => { const value = progress.mathAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, value); return <label className={mathChecked ? ok ? "correct" : "retry" : ""} key={question.id}><span><small>Задание {index + 1} · {question.role === "reinforcement" ? "закрепление" : question.role === "stretch" ? "небольшой вызов" : "текущий уровень"}</small>{question.label}</span><input inputMode="numeric" value={value} onFocus={() => markQuestionStarted(question.id)} onChange={(e) => { markQuestionStarted(question.id); setMathChecked(false); setAnswer("mathAnswers", index, e.target.value); }} placeholder="Ответ" /><div className="learning-assist">{Boolean(question.hint) && <button type="button" className="learning-hint-button" onClick={(event) => { event.preventDefault(); showLearningHint(question.id); }}>Подсказка</button>}{progress.learningHints[question.id] && <em className="learning-hint-text">{question.hint}</em>}{mathChecked && <b>{ok ? "Получилось" : "Можно ещё раз"}</b>}</div></label>; })}</div>
             {mathChecked && !mathAllCorrect && <Feedback>Часть ответов уже получилась. Остальные можно спокойно посмотреть ещё раз — подсказки рядом.</Feedback>}
-            <ActionButton disabled={!learningAssignments || progress.mathAnswers.some((item) => !item) || progress.done.includes("math")} onClick={() => checkLearning("math")}>{mathChecked && mathAllCorrect ? "Шифр открыт!" : "Проверить ответы"}</ActionButton>
+            <ActionButton disabled={!learningAssignments || mathQuestions.some((_, index) => !(progress.mathAnswers[index] ?? "")) || progress.done.includes("math")} onClick={() => checkLearning("math")}>{mathChecked && mathAllCorrect ? "Шифр открыт!" : "Проверить ответы"}</ActionButton>
           </>}
           {view === "english" && <>
-            <Intro title="Собери словарь разведчика" text="Выполни шесть коротких заданий: выбирай ответы или пиши английские слова и фразы." />
+            <Intro title="Собери словарь разведчика" text="До пяти коротких заданий: выбирай ответы, пиши знакомые слова или собирай фразу нажатием на карточки." />
+            <LearningProfile />
             {!learningAssignments && saveState === "offline" && <Feedback>Учебные задания пока не загрузились. Проверь связь и обнови страницу — ответы не потеряются.</Feedback>}
-            <div className="english-list">{englishQuestions.map((question, index) => { const chosen = progress.englishAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, chosen); const isInput = "kind" in question && question.kind === "input"; return <article className={englishChecked ? ok ? "correct" : "retry" : ""} key={question.id}><div className="word-prompt"><strong>{question.icon}</strong><span>{question.label}</span></div>{isInput ? <input className="english-text-answer" value={chosen} onFocus={() => markQuestionStarted(question.id)} onChange={(event) => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, event.target.value); }} placeholder="Напиши ответ" /> : <div className="word-options">{question.options?.map((option) => <button className={chosen === option ? "chosen" : ""} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, option); }} key={option}>{option}</button>)}</div>}{"hint" in question && Boolean(question.hint) && <button type="button" className="learning-hint-button" onClick={() => showLearningHint(question.id)}>Подсказка</button>}{progress.learningHints[question.id] && "hint" in question && <em className="learning-hint-text">{String(question.hint)}</em>}{englishChecked && <small>{ok ? "Получилось!" : "Можно ещё раз"}</small>}</article>; })}</div>
+            <div className="english-list">{englishQuestions.map((question, index) => { const chosen = progress.englishAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, chosen); const isInput = question.kind === "input"; const isWordOrder = question.kind === "word_order"; const placedWords = chosen ? chosen.split(" ") : []; return <article className={englishChecked ? ok ? "correct" : "retry" : ""} key={question.id}><div className="word-prompt"><strong>{question.icon}</strong><span>{question.label}</span></div>{isInput ? <input className="english-text-answer" value={chosen} onFocus={() => markQuestionStarted(question.id)} onChange={(event) => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, event.target.value); }} placeholder="Напиши ответ" /> : isWordOrder ? <div className="word-builder"><div className="word-sentence" aria-label="Собранное предложение">{placedWords.length ? placedWords.map((word, wordIndex) => <button type="button" title="Убрать слово" onClick={() => { setEnglishChecked(false); setAnswer("englishAnswers", index, placedWords.filter((_, placedIndex) => placedIndex !== wordIndex).join(" ")); }} key={`${word}-${wordIndex}`}>{word}</button>) : <span>Нажимай на слова по порядку</span>}</div><div className="word-bank">{question.options?.map((option, optionIndex) => { const occurrence = question.options!.slice(0, optionIndex + 1).filter((word) => word === option).length; const used = placedWords.filter((word) => word === option).length >= occurrence; return <button type="button" disabled={used} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, [...placedWords, option].join(" ")); }} key={`${option}-${optionIndex}`}>{option}</button>; })}</div></div> : <div className="word-options">{question.options?.map((option) => <button className={chosen === option ? "chosen" : ""} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, option); }} key={option}>{option}</button>)}</div>}{Boolean(question.hint) && <button type="button" className="learning-hint-button" onClick={() => showLearningHint(question.id)}>Подсказка</button>}{progress.learningHints[question.id] && <em className="learning-hint-text">{String(question.hint)}</em>}{englishChecked && <small>{ok ? "Получилось!" : "Можно ещё раз"}</small>}</article>; })}</div>
             {englishChecked && !englishAllCorrect && <Feedback>Часть ответов уже готова. Остальные можно спокойно посмотреть ещё раз — подсказки рядом.</Feedback>}
-            <ActionButton disabled={!learningAssignments || progress.englishAnswers.some((item) => !item) || progress.done.includes("english")} onClick={() => checkLearning("english")}>Проверить всю разведку</ActionButton>
+            <ActionButton disabled={!learningAssignments || englishQuestions.some((_, index) => !(progress.englishAnswers[index] ?? "")) || progress.done.includes("english")} onClick={() => checkLearning("english")}>Проверить всю разведку</ActionButton>
           </>}
           {view === "order" && <>
             <Intro title="Порядок за пять минут" text="Сегодня новый короткий набор. Достаточно выполнить любые три пункта." />
@@ -529,6 +531,7 @@ function ActivityHeader({ mission, onBack, done }: { mission: Mission; onBack: (
   return <header className={`activity-header ${done ? "mission-complete" : ""}`}><button onClick={onBack} aria-label="Вернуться к маршруту">←</button><span className="screen-icon mission"><MissionIcon id={mission.id}/></span><div><span>{mission.kicker}</span><strong>{mission.title}</strong></div><b>{done ? "Готово" : mission.reward}</b></header>;
 }
 function Intro({ title, text }: { title: string; text: string }) { return <div className="activity-intro"><h1>{title}</h1><p>{text}</p></div>; }
+function LearningProfile() { return <aside className="learning-profile"><span>{EDUCATION_PROFILE.label}</span><strong>Мягкая настройка уровня</strong><p>Это не контрольная. Сейчас начало учебного года: короткие задания помогают спокойно повторить знакомое и подобрать удобный темп.</p></aside>; }
 function CheckList({ items, selected, onToggle }: { items: string[][]; selected: string[]; onToggle: (id: string) => void }) { return <div className="check-list">{items.map(([id,label],index)=><button className={selected.includes(id)?"checked":""} onClick={()=>onToggle(id)} key={id}><span>{selected.includes(id)?"✓":index+1}</span><strong>{label}</strong></button>)}</div>; }
 function ChoiceList({ options, selected, onSelect }: { options: string[]; selected: string; onSelect: (value: string) => void }) { return <div className="choice-list">{options.map((option,index)=><button className={selected===option?"selected":""} onClick={()=>onSelect(option)} key={option}><span>{String.fromCharCode(65+index)}</span><strong>{option}</strong><i>{selected===option?"✓":""}</i></button>)}</div>; }
 function ActionButton({ children, disabled, onClick }: { children: React.ReactNode; disabled?: boolean; onClick: () => void }) { return <button className="primary-action" disabled={disabled} onClick={onClick}>{children}</button>; }

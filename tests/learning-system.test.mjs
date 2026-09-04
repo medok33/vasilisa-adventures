@@ -1,16 +1,48 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { decideSkillAdaptation, generateDailyAssignments, isAnswerCorrect, SUBJECT_SKILLS } from "../app/learning-system.ts";
+import { decideSkillAdaptation, EDUCATION_PROFILE, generateDailyAssignments, isAnswerCorrect, SUBJECT_SKILLS } from "../app/learning-system.ts";
 import { createSiteSession, safeReturnTo, verifySiteSession } from "../app/site-auth.ts";
 
 test("daily learning set contains both subjects and the agreed role mix", () => {
   const assignments = generateDailyAssignments({ day: "2026-09-01" });
   assert.equal(assignments.math.length, 5);
-  assert.equal(assignments.english.length, 6);
+  assert.equal(assignments.english.length, 5);
   assert.deepEqual(assignments.math.map((item) => item.role).sort(), ["current", "current", "current", "reinforcement", "stretch"].sort());
-  assert.deepEqual(assignments.english.map((item) => item.role).sort(), ["current", "current", "current", "current", "reinforcement", "stretch"].sort());
+  assert.deepEqual(assignments.english.map((item) => item.role).sort(), ["current", "current", "current", "reinforcement", "stretch"].sort());
   assert.ok(assignments.math.every((item) => SUBJECT_SKILLS.math.includes(item.skill)));
   assert.ok(assignments.english.every((item) => SUBJECT_SKILLS.english.includes(item.skill)));
+});
+
+test("grade-four start-of-year profile limits load and keeps daily variety", () => {
+  assert.deepEqual(EDUCATION_PROFILE, {
+    id: "school-russia-2025-grade-4",
+    grade: 4,
+    age: 10,
+    label: "4 класс · Школа России",
+    alignment: "common-grade-baseline",
+    textbookBinding: false,
+  });
+  for (let dayNumber = 1; dayNumber <= 30; dayNumber += 1) {
+    const day = `2026-09-${String(dayNumber).padStart(2, "0")}`;
+    const assignments = generateDailyAssignments({ day });
+    for (const subject of ["math", "english"]) {
+      const questions = assignments[subject];
+      const counts = [...questions.reduce((map, question) => map.set(question.skill, (map.get(question.skill) ?? 0) + 1), new Map()).values()];
+      assert.equal(questions.length, 5, `${subject} load on ${day}`);
+      assert.ok(Math.max(...counts) <= 2, `${subject} repeats one skill too often on ${day}`);
+      assert.ok(questions.every((question) => question.templateId.startsWith("sr4-")), `${subject} uses old templates on ${day}`);
+    }
+    assert.ok(new Set(assignments.math.map((question) => question.skill)).size >= 4, `math variety on ${day}`);
+    assert.ok(new Set(assignments.english.map((question) => question.skill)).size >= 4, `English variety on ${day}`);
+  }
+});
+
+test("word-order questions expose tappable words instead of requiring typing", () => {
+  const questions = Array.from({ length: 90 }, (_, index) => generateDailyAssignments({ day: new Date(Date.UTC(2026, 8, index + 1)).toISOString().slice(0, 10) }).english).flat();
+  const wordOrder = questions.find((question) => question.kind === "word_order");
+  assert.ok(wordOrder);
+  assert.ok(wordOrder.options.length >= 3);
+  assert.deepEqual([...wordOrder.options].sort(), wordOrder.answer.split(" ").sort());
 });
 
 test("daily generation is stable and excludes recent exact questions", () => {

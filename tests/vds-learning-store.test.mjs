@@ -11,7 +11,7 @@ test("VDS store persists assignments and every correction attempt", async () => 
     const store = await import(`../vds/learning-store.ts?test=${Date.now()}`);
     const assignments = store.getOrCreateAssignments("2026-09-01");
     assert.equal(assignments.math.length, 5);
-    assert.equal(assignments.english.length, 6);
+    assert.equal(assignments.english.length, 5);
     assert.deepEqual(store.getOrCreateAssignments("2026-09-01"), assignments);
 
     const question = assignments.math[0];
@@ -22,6 +22,10 @@ test("VDS store persists assignments and every correction attempt", async () => 
     assert.equal(results[0].correct, true);
     assert.equal(results[0].attemptNumber, 2);
     assert.equal(store.learningDiagnostics().attempts, 2);
+
+    const wordOrder = store.getOrCreateAssignments("2026-09-10").english.find((item) => item.kind === "word_order");
+    assert.ok(wordOrder, "tappable word-order kind survives the SQLite compatibility layer");
+    assert.ok(wordOrder.options.length >= 3);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

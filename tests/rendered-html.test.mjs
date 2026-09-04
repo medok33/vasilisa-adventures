@@ -19,6 +19,18 @@ test("child-facing feedback supports calm retries without blame styling", async 
   assert.match(adventure, /папин бонус/i);
 });
 
+test("learning screens use a five-question ceiling and a non-evaluative grade-four profile", async () => {
+  const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
+  assert.match(adventure, /4 класс · Школа России|EDUCATION_PROFILE\.label/);
+  assert.match(adventure, /Мягкая настройка уровня/);
+  assert.match(adventure, /Это не контрольная/);
+  assert.match(adventure, /До пяти коротких заданий/);
+  assert.match(adventure, /learningAssignments\?\.english \?\? \[\]\)\.slice\(0, 5\)/);
+  assert.match(adventure, /word-sentence/);
+  assert.match(adventure, /Нажимай на слова по порядку/);
+  assert.doesNotMatch(adventure, /уровня 3-го класса|Выполни шесть коротких заданий/);
+});
+
 test("reading uses one compact end-page field and views survive a refresh", async () => {
   const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
   assert.match(adventure, /Укажи, до какой страницы ты дочитала сегодня/);

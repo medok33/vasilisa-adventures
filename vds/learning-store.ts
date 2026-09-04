@@ -212,7 +212,7 @@ function publicQuestion(row: AssignmentRow): LearningQuestion {
     templateId: row.template_id,
     label: row.prompt,
     answer: row.expected_answer,
-    kind: row.kind,
+    kind: row.template_id.startsWith("sr4-en-order-") ? "word_order" : row.kind,
     options: JSON.parse(row.options_json || "[]"),
     hint: row.hint,
     icon: row.icon || undefined,
@@ -231,9 +231,10 @@ export function getOrCreateAssignments(day: string) {
       for (const subject of ["math", "english"] as const) {
         generated[subject].forEach((question, position) => {
           const itemId = `item-${stableId(question.fingerprint)}`;
+          const storedKind = question.kind === "word_order" ? "input" : question.kind;
           database.prepare(`INSERT OR IGNORE INTO learning_items
             (id,subject,skill,topic,template_id,level,prompt,expected_answer,kind,options_json,hint,icon,fingerprint)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(itemId, subject, question.skill, question.topic, question.templateId, question.level, question.label, question.answer, question.kind, JSON.stringify(question.options ?? []), question.hint, question.icon ?? "", question.fingerprint);
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(itemId, subject, question.skill, question.topic, question.templateId, question.level, question.label, question.answer, storedKind, JSON.stringify(question.options ?? []), question.hint, question.icon ?? "", question.fingerprint);
           database.prepare(`INSERT OR IGNORE INTO daily_assignments(id,day,subject,position,item_id,role)
             VALUES(?,?,?,?,?,?)`).run(question.id, day, subject, position, itemId, question.role);
         });
