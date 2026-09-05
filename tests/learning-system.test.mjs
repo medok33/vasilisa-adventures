@@ -39,6 +39,7 @@ test("grade-four start-of-year profile limits load and keeps daily variety", () 
 
 test("math day mixes calm number, life and reasoning formats without overload", () => {
   const compositions = new Set();
+  let previousComposition = "";
   for (let dayNumber = 1; dayNumber <= 30; dayNumber += 1) {
     const day = `2026-10-${String(dayNumber).padStart(2, "0")}`;
     const questions = generateDailyAssignments({ day }).math;
@@ -46,12 +47,16 @@ test("math day mixes calm number, life and reasoning formats without overload", 
     const counts = [...skills.reduce((map, skill) => map.set(skill, (map.get(skill) ?? 0) + 1), new Map()).values()];
     assert.equal(questions.length, 5);
     assert.ok(new Set(skills).size >= 4, `four math skills on ${day}`);
+    assert.ok(new Set(questions.map((question) => question.templateId.replace(/-v\d+$/u, ""))).size >= 4, `four math formats on ${day}`);
     assert.ok(Math.max(...counts) <= 2, `no more than two of one skill on ${day}`);
     assert.ok(skills.some((skill) => ["time", "money", "measurement"].includes(skill)), `life task on ${day}`);
     assert.ok(skills.some((skill) => ["geometry", "order_operations", "patterns"].includes(skill)), `reasoning task on ${day}`);
-    compositions.add(skills.join(","));
+    const composition = skills.join(",");
+    assert.notEqual(composition, previousComposition, `neighbouring days use different math compositions on ${day}`);
+    previousComposition = composition;
+    compositions.add(composition);
   }
-  assert.ok(compositions.size >= 12, "neighbouring days do not reuse one math composition");
+  assert.ok(compositions.size >= 12, "30 days contain varied math compositions");
 });
 
 test("word-order questions expose tappable words instead of requiring typing", () => {
