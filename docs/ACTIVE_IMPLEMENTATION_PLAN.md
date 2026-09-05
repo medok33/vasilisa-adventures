@@ -562,6 +562,7 @@ Production:
 - Проверки: `npm test` — 34/34; `npm run lint` — 0 ошибок, 3 прежних
   предупреждения `<img>`; Vinext build и `bash scripts/build-vds.sh` успешны;
   `git diff --check` успешен.
-- GitHub: опубликовано в `main` squash-commit `d366d84c40406ea77050ed0e66727f297c7a125c`.\n- Production: ещё не публиковалось; данные ребёнка не затрагивались.
+- GitHub: опубликовано в `main` squash-commit `d366d84c40406ea77050ed0e66727f297c7a125c`.
+- Production: ещё не публиковалось; данные ребёнка не затрагивались.
 - Следующий шаг: опубликовать commit и безопасно развернуть только `app`, затем
   проверить Math и English на основном домене.
