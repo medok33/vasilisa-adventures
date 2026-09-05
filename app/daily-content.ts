@@ -7,6 +7,7 @@ export type DailyContent = {
   independence: string[];
   order: string[];
   secret: string;
+  missionCopy: Record<"order" | "kindness" | "independence", { title: string; note: string }>;
 };
 
 function hash(value: string) {
@@ -50,6 +51,11 @@ function rotateDaily<T>(items: readonly T[], day: string, count: number, lane: s
   }
   for (const candidate of items) if (chosen.length < count && !chosen.includes(candidate)) chosen.push(candidate);
   return chosen;
+}
+
+function missionCopyForDay(items: readonly (readonly [string, string])[], day: string, lane: string) {
+  const [title, note] = rotateDaily(items, day, 1, lane)[0];
+  return { title, note };
 }
 
 const words = [
@@ -151,6 +157,27 @@ const secrets = [
   "Заметь, кому сегодня хочется сказать «я рядом».",
 ];
 
+const missionCopy = {
+  order: [
+    ["Остров порядка", "Выбери несколько вещей, которым пора вернуться домой"],
+    ["Тихая мастерская", "Сделай вокруг себя немного свободнее и удобнее"],
+    ["Место для завтрашнего дня", "Подготовь один маленький уголок заранее"],
+    ["Комната дышит", "Пять минут заботы о своём пространстве"],
+  ],
+  kindness: [
+    ["Тёплый сигнал", "Выбери маленький способ поддержать кого-то рядом"],
+    ["Лучик для другого", "Одно доброе действие без ожидания награды"],
+    ["Секрет заботы", "Заметь, кому сегодня может стать чуть легче"],
+    ["Добрая находка", "Поделись вниманием, временем или помощью"],
+  ],
+  independence: [
+    ["Мой самостоятельный шаг", "Вспомни дело, которое получилось начать самой"],
+    ["Суперсила выбора", "Выбери одно маленькое дело и проведи его сама"],
+    ["Я уже готова", "Заметь, что сегодня смогла сделать без напоминания"],
+    ["Свой маршрут", "Один спокойный шаг, который ты выбираешь сама"],
+  ],
+} as const;
+
 export function dailyContent(day: string): DailyContent {
   const random = randomFor(`vasilisa:${day}`);
   const a = 100 + Math.floor(random() * 800);
@@ -178,5 +205,10 @@ export function dailyContent(day: string): DailyContent {
     math: pick(math, random, math.length), english,
     kindness: rotateDaily(kindness, day, 3, "kindness"), independence: rotateDaily(independence, day, 4, "independence"), order: rotateDaily(order, day, 4, "order"),
     secret: rotateDaily(secrets, day, 1, "secret")[0],
+    missionCopy: {
+      order: missionCopyForDay(missionCopy.order, day, "order-copy"),
+      kindness: missionCopyForDay(missionCopy.kindness, day, "kindness-copy"),
+      independence: missionCopyForDay(missionCopy.independence, day, "independence-copy"),
+    },
   };
 }
