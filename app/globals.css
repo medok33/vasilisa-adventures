@@ -597,7 +597,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .login-card input:focus{border-color:#8e6ac8;box-shadow:0 0 0 4px rgba(142,106,200,.12)}
 .login-card button{padding:15px 20px;border:0;border-radius:17px;background:#6e4cad;color:#fff;font:inherit;font-weight:850;cursor:pointer;box-shadow:0 12px 24px rgba(110,76,173,.24)}
 .login-error{margin-top:18px;padding:11px 14px;border-radius:14px;background:#fff0f0;color:#a83939;font-weight:750}
-.learning-hint-button{align-self:flex-start;border:0;border-radius:999px;padding:8px 12px;background:#fff2b9;color:#725200;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
-.learning-hint-text{display:block;margin-top:8px;color:#6f5a22;font-style:normal;font-size:14px;line-height:1.4}
+.learning-hint-button{align-self:flex-start;border:1px solid #f2d67b;border-radius:999px;padding:7px 11px;background:#fff7d8;color:#725200;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.learning-hint-button[aria-expanded="true"]{background:#fff0af}
+.learning-hint-text{display:block;max-width:360px;margin-top:2px;padding:9px 11px;border-left:3px solid #e7c95b;border-radius:0 11px 11px 0;background:#fffaf0;color:#6f5a22;font-style:normal;font-size:13px;line-height:1.4}
 .english-text-answer{width:100%;margin-top:12px;padding:13px 15px;border:1px solid rgba(70,54,100,.18);border-radius:15px;background:#fff;font:inherit;color:inherit;outline:none}
 .english-text-answer:focus{border-color:#8e6ac8;box-shadow:0 0 0 4px rgba(142,106,200,.1)}

@@ -116,6 +116,7 @@ export default function Adventure() {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [learningAssignments, setLearningAssignments] = useState<{ math: LearningQuestion[]; english: LearningQuestion[] } | null>(null);
   const [dadContacts, setDadContacts] = useState<DadContacts | null>(null);
+  const [openLearningHints, setOpenLearningHints] = useState<Record<string, boolean>>({});
   const questionStartedAt = useRef<Record<string, number>>({});
   const content = useMemo(() => dailyContent(day), [day]);
   const mathQuestions = (learningAssignments?.math ?? []).slice(0, 5);
@@ -163,7 +164,7 @@ export default function Adventure() {
       if (!response.ok || !learningResponse.ok) throw new Error("load");
       const data = await response.json() as { progress?: Partial<Progress>; closed?: boolean; todayLimit?: number };
       const learning = await learningResponse.json() as { math?: LearningQuestion[]; english?: LearningQuestion[] };
-      if (learning.math?.length !== 5 || learning.english?.length !== 6) throw new Error("learning-load");
+      if (learning.math?.length !== 5 || learning.english?.length !== 5) throw new Error("learning-load");
       setLearningAssignments({ math: learning.math, english: learning.english });
       const loadedProgress = { ...emptyProgress, ...(data.progress ?? {}), done: (data.progress?.done ?? []) as MissionId[] };
       setProgress({ ...loadedProgress, bookProgress: loadedProgress.bookProgress ?? {}, bookReflections: cleanBookReflections(loadedProgress.bookReflections), readingQuestionAnswers: loadedProgress.readingQuestionAnswers ?? {}, learningHistory: loadedProgress.learningHistory ?? emptyLearningHistory(), learningHints: loadedProgress.learningHints ?? {} });
@@ -249,9 +250,14 @@ export default function Adventure() {
   function markQuestionStarted(questionId: string) {
     questionStartedAt.current[questionId] ??= Date.now();
   }
-  function showLearningHint(questionId: string) {
+  function toggleLearningHint(questionId: string) {
     markQuestionStarted(questionId);
     patch({ learningHints: { ...progress.learningHints, [questionId]: true } });
+    setOpenLearningHints((current) => ({ ...current, [questionId]: !current[questionId] }));
+  }
+  function revealHintsAfterFirstError(questionIds: string[]) {
+    if (!questionIds.length) return;
+    setOpenLearningHints((current) => ({ ...current, ...Object.fromEntries(questionIds.map((questionId) => [questionId, true])) }));
   }
   async function checkLearning(subject: LearningSubject) {
     if (!learningAssignments || closed || progress.done.includes(subject)) return;
@@ -280,6 +286,13 @@ export default function Adventure() {
       learningHistory: recordLearningAttempt(current.learningHistory, subject, questions, subject === "math" ? current.mathAnswers : current.englishAnswers, checkedAt, attemptMeta),
       done: allCorrect && !current.done.includes(subject) ? [...current.done, subject] : current.done,
     }));
+    const firstAttemptHintIds = questions
+      .filter((question) => resultById.get(question.id) === false && !progress.learningHints[question.id])
+      .map((question) => question.id);
+    if (firstAttemptHintIds.length) {
+      setProgress((current) => ({ ...current, learningHints: { ...current.learningHints, ...Object.fromEntries(firstAttemptHintIds.map((questionId) => [questionId, true])) } }));
+      revealHintsAfterFirstError(firstAttemptHintIds);
+    }
     if (subject === "math") setMathChecked(true); else setEnglishChecked(true);
     if (!allCorrect) return;
     setCelebration({ id: subject, text: subject === "math" ? "Шифр экспедиции разгадан" : "English-разведка завершена", stars: subject === "math" ? 2 : 1 });
@@ -414,7 +427,7 @@ export default function Adventure() {
             <Intro title="Введи код экспедиции" text="До пяти коротких заданий для повторения. Решай в своём темпе и меняй ответы столько раз, сколько захочется." />
             <LearningProfile />
             {!learningAssignments && saveState === "offline" && <Feedback>Учебные задания пока не загрузились. Проверь связь и обнови страницу — ответы не потеряются.</Feedback>}
-            <div className="math-list">{mathQuestions.map((question, index) => { const value = progress.mathAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, value); return <label className={mathChecked ? ok ? "correct" : "retry" : ""} key={question.id}><span><small>Задание {index + 1} · {question.role === "reinforcement" ? "закрепление" : question.role === "stretch" ? "небольшой вызов" : "текущий уровень"}</small>{question.label}</span><input inputMode="numeric" value={value} onFocus={() => markQuestionStarted(question.id)} onChange={(e) => { markQuestionStarted(question.id); setMathChecked(false); setAnswer("mathAnswers", index, e.target.value); }} placeholder="Ответ" /><div className="learning-assist">{Boolean(question.hint) && <button type="button" className="learning-hint-button" onClick={(event) => { event.preventDefault(); showLearningHint(question.id); }}>Подсказка</button>}{progress.learningHints[question.id] && <em className="learning-hint-text">{question.hint}</em>}{mathChecked && <b>{ok ? "Получилось" : "Можно ещё раз"}</b>}</div></label>; })}</div>
+            <div className="math-list">{mathQuestions.map((question, index) => { const value = progress.mathAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, value); const hintOpen = Boolean(openLearningHints[question.id]); return <label className={mathChecked ? ok ? "correct" : "retry" : ""} key={question.id}><span><small>Задание {index + 1} · {question.role === "reinforcement" ? "закрепление" : question.role === "stretch" ? "небольшой вызов" : "текущий уровень"}</small>{question.label}</span><input inputMode="numeric" value={value} onFocus={() => markQuestionStarted(question.id)} onChange={(e) => { markQuestionStarted(question.id); setMathChecked(false); setAnswer("mathAnswers", index, e.target.value); }} placeholder="Ответ" /><div className="learning-assist">{Boolean(question.hint) && <button type="button" className="learning-hint-button" aria-expanded={hintOpen} onClick={(event) => { event.preventDefault(); toggleLearningHint(question.id); }}>{hintOpen ? "Скрыть подсказку" : "Подсказка"}</button>}{hintOpen && <em className="learning-hint-text">{question.hint}</em>}{mathChecked && <b>{ok ? "Получилось" : "Можно ещё раз"}</b>}</div></label>; })}</div>
             {mathChecked && !mathAllCorrect && <Feedback>Часть ответов уже получилась. Остальные можно спокойно посмотреть ещё раз — подсказки рядом.</Feedback>}
             <ActionButton disabled={!learningAssignments || mathQuestions.some((_, index) => !(progress.mathAnswers[index] ?? "")) || progress.done.includes("math")} onClick={() => checkLearning("math")}>{mathChecked && mathAllCorrect ? "Шифр открыт!" : "Проверить ответы"}</ActionButton>
           </>}
@@ -422,7 +435,7 @@ export default function Adventure() {
             <Intro title="Собери словарь разведчика" text="До пяти коротких заданий: выбирай ответы, пиши знакомые слова или собирай фразу нажатием на карточки." />
             <LearningProfile />
             {!learningAssignments && saveState === "offline" && <Feedback>Учебные задания пока не загрузились. Проверь связь и обнови страницу — ответы не потеряются.</Feedback>}
-            <div className="english-list">{englishQuestions.map((question, index) => { const chosen = progress.englishAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, chosen); const isInput = question.kind === "input"; const isWordOrder = question.kind === "word_order"; const placedWords = chosen ? chosen.split(" ") : []; return <article className={englishChecked ? ok ? "correct" : "retry" : ""} key={question.id}><div className="word-prompt"><strong>{question.icon}</strong><span>{question.label}</span></div>{isInput ? <input className="english-text-answer" value={chosen} onFocus={() => markQuestionStarted(question.id)} onChange={(event) => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, event.target.value); }} placeholder="Напиши ответ" /> : isWordOrder ? <div className="word-builder"><div className="word-sentence" aria-label="Собранное предложение">{placedWords.length ? placedWords.map((word, wordIndex) => <button type="button" title="Убрать слово" onClick={() => { setEnglishChecked(false); setAnswer("englishAnswers", index, placedWords.filter((_, placedIndex) => placedIndex !== wordIndex).join(" ")); }} key={`${word}-${wordIndex}`}>{word}</button>) : <span>Нажимай на слова по порядку</span>}</div><div className="word-bank">{question.options?.map((option, optionIndex) => { const occurrence = question.options!.slice(0, optionIndex + 1).filter((word) => word === option).length; const used = placedWords.filter((word) => word === option).length >= occurrence; return <button type="button" disabled={used} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, [...placedWords, option].join(" ")); }} key={`${option}-${optionIndex}`}>{option}</button>; })}</div></div> : <div className="word-options">{question.options?.map((option) => <button className={chosen === option ? "chosen" : ""} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, option); }} key={option}>{option}</button>)}</div>}{Boolean(question.hint) && <button type="button" className="learning-hint-button" onClick={() => showLearningHint(question.id)}>Подсказка</button>}{progress.learningHints[question.id] && <em className="learning-hint-text">{String(question.hint)}</em>}{englishChecked && <small>{ok ? "Получилось!" : "Можно ещё раз"}</small>}</article>; })}</div>
+            <div className="english-list">{englishQuestions.map((question, index) => { const chosen = progress.englishAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, chosen); const isInput = question.kind === "input"; const isWordOrder = question.kind === "word_order"; const placedWords = chosen ? chosen.split(" ") : []; const hintOpen = Boolean(openLearningHints[question.id]); return <article className={englishChecked ? ok ? "correct" : "retry" : ""} key={question.id}><div className="word-prompt"><strong>{question.icon}</strong><span>{question.label}</span></div>{isInput ? <input className="english-text-answer" value={chosen} onFocus={() => markQuestionStarted(question.id)} onChange={(event) => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, event.target.value); }} placeholder="Напиши ответ" /> : isWordOrder ? <div className="word-builder"><div className="word-sentence" aria-label="Собранное предложение">{placedWords.length ? placedWords.map((word, wordIndex) => <button type="button" title="Убрать слово" onClick={() => { setEnglishChecked(false); setAnswer("englishAnswers", index, placedWords.filter((_, placedIndex) => placedIndex !== wordIndex).join(" ")); }} key={`${word}-${wordIndex}`}>{word}</button>) : <span>Нажимай на слова по порядку</span>}</div><div className="word-bank">{question.options?.map((option, optionIndex) => { const occurrence = question.options!.slice(0, optionIndex + 1).filter((word) => word === option).length; const used = placedWords.filter((word) => word === option).length >= occurrence; return <button type="button" disabled={used} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, [...placedWords, option].join(" ")); }} key={`${option}-${optionIndex}`}>{option}</button>; })}</div></div> : <div className="word-options">{question.options?.map((option) => <button className={chosen === option ? "chosen" : ""} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, option); }} key={option}>{option}</button>)}</div>}{Boolean(question.hint) && <button type="button" className="learning-hint-button" aria-expanded={hintOpen} onClick={() => toggleLearningHint(question.id)}>{hintOpen ? "Скрыть подсказку" : "Подсказка"}</button>}{hintOpen && <em className="learning-hint-text">{String(question.hint)}</em>}{englishChecked && <small>{ok ? "Получилось!" : "Можно ещё раз"}</small>}</article>; })}</div>
             {englishChecked && !englishAllCorrect && <Feedback>Часть ответов уже готова. Остальные можно спокойно посмотреть ещё раз — подсказки рядом.</Feedback>}
             <ActionButton disabled={!learningAssignments || englishQuestions.some((_, index) => !(progress.englishAnswers[index] ?? "")) || progress.done.includes("english")} onClick={() => checkLearning("english")}>Проверить всю разведку</ActionButton>
           </>}
