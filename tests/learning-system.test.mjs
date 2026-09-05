@@ -59,6 +59,32 @@ test("math day mixes calm number, life and reasoning formats without overload", 
   assert.ok(compositions.size >= 12, "30 days contain varied math compositions");
 });
 
+test("English day stays short and mixes word, grammar, cards and meaning", () => {
+  const grammar = new Set(["grammar_to_be", "grammar_have_got", "grammar_can", "grammar_present_simple", "prepositions"]);
+  const meaning = new Set(["reading", "translation", "dialogue"]);
+  const compositions = new Set();
+  let previousComposition = "";
+  for (let dayNumber = 1; dayNumber <= 30; dayNumber += 1) {
+    const day = `2026-11-${String(dayNumber).padStart(2, "0")}`;
+    const questions = generateDailyAssignments({ day }).english;
+    const skills = questions.map((question) => question.skill);
+    const counts = [...skills.reduce((map, skill) => map.set(skill, (map.get(skill) ?? 0) + 1), new Map()).values()];
+    assert.equal(questions.length, 5, `English load on ${day}`);
+    assert.ok(new Set(skills).size >= 4, `four English skills on ${day}`);
+    assert.ok(Math.max(...counts) <= 2, `no more than two English skills repeat on ${day}`);
+    assert.ok(skills.filter((skill) => skill === "vocabulary").length <= 1, `only one simple word choice on ${day}`);
+    assert.ok(skills.includes("word_order"), `tappable sentence cards on ${day}`);
+    assert.ok(skills.some((skill) => grammar.has(skill)), `one grammar step on ${day}`);
+    assert.ok(skills.some((skill) => meaning.has(skill)), `one short meaning step on ${day}`);
+    assert.ok(questions.every((question) => !question.icon), `no emoji study images on ${day}`);
+    const composition = skills.join(",");
+    assert.notEqual(composition, previousComposition, `neighbouring English days differ on ${day}`);
+    previousComposition = composition;
+    compositions.add(composition);
+  }
+  assert.ok(compositions.size >= 12, "30 days contain varied English compositions");
+});
+
 test("word-order questions expose tappable words instead of requiring typing", () => {
   const questions = Array.from({ length: 90 }, (_, index) => generateDailyAssignments({ day: new Date(Date.UTC(2026, 8, index + 1)).toISOString().slice(0, 10) }).english).flat();
   const wordOrder = questions.find((question) => question.kind === "word_order");
