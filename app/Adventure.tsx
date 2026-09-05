@@ -648,13 +648,15 @@ function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, s
 
 function approvalSealSvg() {
   return `<svg width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <path id="sealTop" d="M 18 80 A 62 62 0 0 1 142 80"/>
+      <path id="sealBottom" d="M 18 80 A 62 62 0 0 0 142 80"/>
+    </defs>
     <circle cx="80" cy="80" r="73" fill="#F8FBFF" fill-opacity="0.5" stroke="#245AA8" stroke-width="2.5"/>
     <circle cx="80" cy="80" r="66" fill="none" stroke="#245AA8" stroke-width="1"/>
     <circle cx="80" cy="80" r="43" fill="none" stroke="#245AA8" stroke-width="1.8"/>
-    <path d="M23 47h114M23 113h114" stroke="#245AA8" stroke-width="1" opacity="0.72"/>
-    <text x="80" y="26" text-anchor="middle" font-family="Roboto" font-size="5.9" font-weight="700" letter-spacing="0.32" fill="#245AA8">ОБЩЕСТВО С ОГРАНИЧЕННОЙ</text>
-    <text x="80" y="38" text-anchor="middle" font-family="Roboto" font-size="5.9" font-weight="700" letter-spacing="0.24" fill="#245AA8">ОТВЕТСТВЕННОСТЬЮ</text>
-    <text x="80" y="130" text-anchor="middle" font-family="Roboto" font-size="7" font-weight="700" letter-spacing="0.24" fill="#245AA8">«СЛОВОМАМЫ» · Г. КОВРОВ</text>
+    <text font-family="Roboto" font-size="5.25" font-weight="700" letter-spacing="0.08" fill="#245AA8"><textPath href="#sealTop" startOffset="50%" text-anchor="middle">ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ</textPath></text>
+    <text font-family="Roboto" font-size="6.7" font-weight="700" letter-spacing="0.2" fill="#245AA8"><textPath href="#sealBottom" startOffset="50%" text-anchor="middle">«СЛОВОМАМЫ» · Г. КОВРОВ</textPath></text>
     <text x="80" y="74" text-anchor="middle" font-family="Roboto" font-size="13" font-weight="700" letter-spacing="0.5" fill="#245AA8">ДЛЯ</text>
     <text x="80" y="92" text-anchor="middle" font-family="Roboto" font-size="13" font-weight="700" letter-spacing="0.18" fill="#245AA8">ДОКУМЕНТОВ</text>
     <circle cx="18" cy="80" r="2.2" fill="#245AA8"/><circle cx="142" cy="80" r="2.2" fill="#245AA8"/>
