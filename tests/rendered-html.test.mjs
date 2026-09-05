@@ -31,6 +31,20 @@ test("learning screens use a five-question ceiling and a non-evaluative grade-fo
   assert.doesNotMatch(adventure, /уровня 3-го класса|Выполни шесть коротких заданий/);
 });
 
+test("learning hints can be opened and closed while their use remains in progress analytics", async () => {
+  const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(adventure, /learning\.english\?\.length !== 5/);
+  assert.match(adventure, /const \[openLearningHints, setOpenLearningHints\]/);
+  assert.match(adventure, /function toggleLearningHint\(questionId: string\)/);
+  assert.match(adventure, /\[questionId\]: true/);
+  assert.match(adventure, /aria-expanded=\{hintOpen\}/);
+  assert.match(adventure, /Скрыть подсказку/);
+  assert.match(adventure, /hintUsed: Boolean\(progress\.learningHints\[question\.id\]\)/);
+  assert.match(styles, /\.learning-hint-button\[aria-expanded="true"\]/);
+  assert.match(styles, /\.learning-hint-text\{[^}]*border-left:3px/);
+});
+
 test("reading uses one compact end-page field and views survive a refresh", async () => {
   const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
   assert.match(adventure, /Укажи, до какой страницы ты дочитала сегодня/);
