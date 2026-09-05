@@ -19,15 +19,16 @@ test("child-facing feedback supports calm retries without blame styling", async 
   assert.match(adventure, /папин бонус/i);
 });
 
-test("learning screens use a five-question ceiling and a non-evaluative grade-four profile", async () => {
+test("learning screens keep five questions but hide technical learning profile from the child", async () => {
   const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
-  assert.match(adventure, /4 класс · Школа России|EDUCATION_PROFILE\.label/);
-  assert.match(adventure, /Мягкая настройка уровня/);
-  assert.match(adventure, /Это не контрольная/);
-  assert.match(adventure, /До пяти коротких заданий/);
   assert.match(adventure, /learningAssignments\?\.english \?\? \[\]\)\.slice\(0, 5\)/);
+  assert.match(adventure, /Разгадывай короткие шифры в своём темпе/);
+  assert.match(adventure, /Открывай слова и собирай фразы/);
   assert.match(adventure, /word-sentence/);
   assert.match(adventure, /Нажимай на слова по порядку/);
+  assert.match(adventure, /function LearningVisual/);
+  assert.match(adventure, /aria-hidden="true"/);
+  assert.doesNotMatch(adventure, /LearningProfile|4 класс · Школа России|Мягкая настройка уровня|Это не контрольная/);
   assert.doesNotMatch(adventure, /уровня 3-го класса|Выполни шесть коротких заданий/);
 });
 
@@ -38,11 +39,13 @@ test("learning hints can be opened and closed while their use remains in progres
   assert.match(adventure, /const \[openLearningHints, setOpenLearningHints\]/);
   assert.match(adventure, /function toggleLearningHint\(questionId: string\)/);
   assert.match(adventure, /\[questionId\]: true/);
-  assert.match(adventure, /aria-expanded=\{hintOpen\}/);
+  assert.match(adventure, /aria-expanded=\{isOpen\}/);
   assert.match(adventure, /Скрыть подсказку/);
   assert.match(adventure, /hintUsed: Boolean\(progress\.learningHints\[question\.id\]\)/);
   assert.match(styles, /\.learning-hint-button\[aria-expanded="true"\]/);
-  assert.match(styles, /\.learning-hint-text\{[^}]*border-left:3px/);
+  assert.match(styles, /\.learning-hint-text\{[^}]*border-left:4px/);
+  assert.match(styles, /\.math-list article \{ display: grid; grid-template-columns:/);
+  assert.match(styles, /\.learning-visual \{ display: grid;/);
 });
 
 test("reading uses one compact end-page field and views survive a refresh", async () => {
@@ -75,11 +78,12 @@ test("signed mom report uses a clean download label and document seal without a 
   assert.match(adventure, /Скачать отчёт/);
   assert.doesNotMatch(adventure, /Мамин отчёт готов|Скачать красивый PDF|Современный дневник приключений с маминой подписью и синей печатью/);
   assert.match(seal, /ОБЩЕСТВО С ОГРАНИЧЕННОЙ/);
-  assert.match(seal, /ОТВЕТСТВЕННОСТЬЮ «СЛОВОМАМЫ» · Г\. КОВРОВ/);
+  assert.match(seal, /ОТВЕТСТВЕННОСТЬЮ/);
+  assert.match(seal, /«СЛОВОМАМЫ» · Г\. КОВРОВ/);
   assert.match(seal, />ДЛЯ</);
   assert.match(seal, />ДОКУМЕНТОВ</);
   assert.doesNotMatch(seal, /ellipse|лап|МАМА ПРОВЕРИЛА|ИГРОВАЯ ПЕЧАТЬ|ТЫ УМНИЦА/);
-  assert.doesNotMatch(pdf, /Мой волшебный день|НАСТРОЕНИЕ|МОЯ ПОБЕДА|БЫЛО НЕПРОСТО|МАМИНА ПРОВЕРКА|Мама проверила маршрут|Подпись мамы|Дата:/);
+  assert.doesNotMatch(pdf, /Мой волшебный день|Мой день - моя история|НАСТРОЕНИЕ|МОЯ ПОБЕДА|БЫЛО НЕПРОСТО|МАМИНА ПРОВЕРКА|Мама проверила маршрут|Подпись мамы|Дата:|relativePosition/);
   assert.match(pdf, /День принят!/);
   assert.match(pdf, /Каждая попытка - это новый шаг вперёд!/);
   assert.match(adventure, /approvalSealSvg/);

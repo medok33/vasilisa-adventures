@@ -6,7 +6,7 @@ import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
 import { BOOKS, cleanBookReflections, cleanRanges, continuousPage, getBook, getReadingQuestion, isBookFinished, isCurrentReadingCorrect, isReadingAnswerCorrect, mergeRanges, nextBook, readingQuestionsForRange, readingStarCount, type BookId, type BookProgress, type BookReflections, type DailyReadingSession } from "./books";
 import { dailyContent } from "./daily-content";
 import { emptyLearningHistory, recordLearningAttempt, type LearningHistory, type LearningSubject } from "./learning-history";
-import { EDUCATION_PROFILE, isAnswerCorrect, type LearningQuestion } from "./learning-system";
+import { isAnswerCorrect, type LearningQuestion } from "./learning-system";
 
 type MissionId = "morning" | "reading" | "math" | "english" | "order" | "kindness" | "independence";
 type View = "home" | "wallet" | "journal" | "parent" | MissionId;
@@ -397,7 +397,7 @@ export default function Adventure() {
         <section className={`activity-card ${closed ? "is-locked" : ""}`}>
           {closed && <DayLockedBanner onUnlock={reopenDay} />}
           {view === "morning" && <>
-            <Intro title="Запусти день спокойно" text="Отмечай по одному пункту. За весь блок начисляется одна звезда — не за каждое действие отдельно." />
+            <Intro title="Запусти день спокойно" text="Выбери спокойный старт: отмечай маленькие шаги один за другим." />
             <CheckList items={morningItems} selected={progress.morningChecks} onToggle={(id) => toggleList("morningChecks", id)} />
             <ActionButton disabled={progress.morningChecks.length !== morningItems.length} onClick={() => complete("morning", "Утренний запуск завершён")}>Завершить утренний запуск</ActionButton>
           </>}
@@ -424,35 +424,33 @@ export default function Adventure() {
             {showBookReflection && Boolean(bookReflection.savedAt) && nextBook(readingBook.id) && <button className="next-book" onClick={() => { patch({ readingBook: nextBook(readingBook.id)!.id, readingStart: "", readingEnd: "", readingAnswer: "" }); goTo("home"); }}>Следующая книга: «{nextBook(readingBook.id)!.title}» →</button>}
           </>}
           {view === "math" && <>
-            <Intro title="Введи код экспедиции" text="До пяти коротких заданий для повторения. Решай в своём темпе и меняй ответы столько раз, сколько захочется." />
-            <LearningProfile />
+            <Intro title="Введи код экспедиции" text="Разгадывай короткие шифры в своём темпе. Пробуй, думай и меняй ответ — так делают исследователи." />
             {!learningAssignments && saveState === "offline" && <Feedback>Учебные задания пока не загрузились. Проверь связь и обнови страницу — ответы не потеряются.</Feedback>}
-            <div className="math-list">{mathQuestions.map((question, index) => { const value = progress.mathAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, value); const hintOpen = Boolean(openLearningHints[question.id]); return <label className={mathChecked ? ok ? "correct" : "retry" : ""} key={question.id}><span><small>Задание {index + 1} · {question.role === "reinforcement" ? "закрепление" : question.role === "stretch" ? "небольшой вызов" : "текущий уровень"}</small>{question.label}</span><input inputMode="numeric" value={value} onFocus={() => markQuestionStarted(question.id)} onChange={(e) => { markQuestionStarted(question.id); setMathChecked(false); setAnswer("mathAnswers", index, e.target.value); }} placeholder="Ответ" /><div className="learning-assist">{Boolean(question.hint) && <button type="button" className="learning-hint-button" aria-expanded={hintOpen} onClick={(event) => { event.preventDefault(); toggleLearningHint(question.id); }}>{hintOpen ? "Скрыть подсказку" : "Подсказка"}</button>}{hintOpen && <em className="learning-hint-text">{question.hint}</em>}{mathChecked && <b>{ok ? "Получилось" : "Можно ещё раз"}</b>}</div></label>; })}</div>
+            <div className="math-list">{mathQuestions.map((question, index) => { const value = progress.mathAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, value); const hintOpen = Boolean(openLearningHints[question.id]); return <article className={mathChecked ? ok ? "correct" : "retry" : ""} key={question.id}><div className="learning-task-copy"><small>Шифр {index + 1}</small><strong>{question.label}</strong></div><div className="learning-task-action"><input aria-label={`Ответ на задание ${index + 1}`} inputMode="numeric" value={value} onFocus={() => markQuestionStarted(question.id)} onChange={(e) => { markQuestionStarted(question.id); setMathChecked(false); setAnswer("mathAnswers", index, e.target.value); }} placeholder="Ответ" /><LearningHint hint={question.hint} isOpen={hintOpen} onToggle={() => toggleLearningHint(question.id)} />{mathChecked && <b className="learning-result">{ok ? "Получилось" : "Можно ещё раз"}</b>}</div></article>; })}</div>
             {mathChecked && !mathAllCorrect && <Feedback>Часть ответов уже получилась. Остальные можно спокойно посмотреть ещё раз — подсказки рядом.</Feedback>}
             <ActionButton disabled={!learningAssignments || mathQuestions.some((_, index) => !(progress.mathAnswers[index] ?? "")) || progress.done.includes("math")} onClick={() => checkLearning("math")}>{mathChecked && mathAllCorrect ? "Шифр открыт!" : "Проверить ответы"}</ActionButton>
           </>}
           {view === "english" && <>
-            <Intro title="Собери словарь разведчика" text="До пяти коротких заданий: выбирай ответы, пиши знакомые слова или собирай фразу нажатием на карточки." />
-            <LearningProfile />
+            <Intro title="Собери словарь разведчика" text="Открывай слова и собирай фразы. Выбирай ответ или нажимай на карточки, когда они появятся." />
             {!learningAssignments && saveState === "offline" && <Feedback>Учебные задания пока не загрузились. Проверь связь и обнови страницу — ответы не потеряются.</Feedback>}
-            <div className="english-list">{englishQuestions.map((question, index) => { const chosen = progress.englishAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, chosen); const isInput = question.kind === "input"; const isWordOrder = question.kind === "word_order"; const placedWords = chosen ? chosen.split(" ") : []; const hintOpen = Boolean(openLearningHints[question.id]); return <article className={englishChecked ? ok ? "correct" : "retry" : ""} key={question.id}><div className="word-prompt"><strong>{question.icon}</strong><span>{question.label}</span></div>{isInput ? <input className="english-text-answer" value={chosen} onFocus={() => markQuestionStarted(question.id)} onChange={(event) => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, event.target.value); }} placeholder="Напиши ответ" /> : isWordOrder ? <div className="word-builder"><div className="word-sentence" aria-label="Собранное предложение">{placedWords.length ? placedWords.map((word, wordIndex) => <button type="button" title="Убрать слово" onClick={() => { setEnglishChecked(false); setAnswer("englishAnswers", index, placedWords.filter((_, placedIndex) => placedIndex !== wordIndex).join(" ")); }} key={`${word}-${wordIndex}`}>{word}</button>) : <span>Нажимай на слова по порядку</span>}</div><div className="word-bank">{question.options?.map((option, optionIndex) => { const occurrence = question.options!.slice(0, optionIndex + 1).filter((word) => word === option).length; const used = placedWords.filter((word) => word === option).length >= occurrence; return <button type="button" disabled={used} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, [...placedWords, option].join(" ")); }} key={`${option}-${optionIndex}`}>{option}</button>; })}</div></div> : <div className="word-options">{question.options?.map((option) => <button className={chosen === option ? "chosen" : ""} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, option); }} key={option}>{option}</button>)}</div>}{Boolean(question.hint) && <button type="button" className="learning-hint-button" aria-expanded={hintOpen} onClick={() => toggleLearningHint(question.id)}>{hintOpen ? "Скрыть подсказку" : "Подсказка"}</button>}{hintOpen && <em className="learning-hint-text">{String(question.hint)}</em>}{englishChecked && <small>{ok ? "Получилось!" : "Можно ещё раз"}</small>}</article>; })}</div>
+            <div className="english-list">{englishQuestions.map((question, index) => { const chosen = progress.englishAnswers[index] ?? ""; const ok = isAnswerCorrect({ answer: question.answer }, chosen); const isInput = question.kind === "input"; const isWordOrder = question.kind === "word_order"; const placedWords = chosen ? chosen.split(" ") : []; const hintOpen = Boolean(openLearningHints[question.id]); return <article className={englishChecked ? ok ? "correct" : "retry" : ""} key={question.id}><div className="word-prompt"><LearningVisual question={question}/><div><small>Шаг {index + 1}</small><strong>{question.label}</strong></div></div><div className="english-response">{isInput ? <input className="english-text-answer" value={chosen} onFocus={() => markQuestionStarted(question.id)} onChange={(event) => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, event.target.value); }} placeholder="Напиши ответ" /> : isWordOrder ? <div className="word-builder"><div className="word-sentence" aria-label="Собранное предложение">{placedWords.length ? placedWords.map((word, wordIndex) => <button type="button" title="Убрать слово" onClick={() => { setEnglishChecked(false); setAnswer("englishAnswers", index, placedWords.filter((_, placedIndex) => placedIndex !== wordIndex).join(" ")); }} key={`${word}-${wordIndex}`}>{word}</button>) : <span>Нажимай на слова по порядку</span>}</div><div className="word-bank">{question.options?.map((option, optionIndex) => { const occurrence = question.options!.slice(0, optionIndex + 1).filter((word) => word === option).length; const used = placedWords.filter((word) => word === option).length >= occurrence; return <button type="button" disabled={used} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, [...placedWords, option].join(" ")); }} key={`${option}-${optionIndex}`}>{option}</button>; })}</div></div> : <div className="word-options">{question.options?.map((option) => <button className={chosen === option ? "chosen" : ""} onClick={() => { markQuestionStarted(question.id); setEnglishChecked(false); setAnswer("englishAnswers", index, option); }} key={option}>{option}</button>)}</div>}<LearningHint hint={question.hint} isOpen={hintOpen} onToggle={() => toggleLearningHint(question.id)} />{englishChecked && <small className="learning-result">{ok ? "Получилось!" : "Можно ещё раз"}</small>}</div></article>; })}</div>
             {englishChecked && !englishAllCorrect && <Feedback>Часть ответов уже готова. Остальные можно спокойно посмотреть ещё раз — подсказки рядом.</Feedback>}
             <ActionButton disabled={!learningAssignments || englishQuestions.some((_, index) => !(progress.englishAnswers[index] ?? "")) || progress.done.includes("english")} onClick={() => checkLearning("english")}>Проверить всю разведку</ActionButton>
           </>}
           {view === "order" && <>
-            <Intro title="Порядок за пять минут" text="Сегодня новый короткий набор. Достаточно выполнить любые три пункта." />
+            <Intro title="Порядок за пять минут" text="Выбери три маленьких дела — после них вокруг станет легче и уютнее." />
             <div className="timer-card"><span>05:00</span><p>Включи обычный таймер на телефоне и начинай</p></div>
             <CheckList items={orderItems} selected={progress.orderChecks} onToggle={(id) => toggleList("orderChecks", id)} />
             <ActionButton disabled={progress.orderChecks.length < 3} onClick={() => complete("order", "Остров порядка готов")}>Порядок наведен</ActionButton>
           </>}
           {view === "kindness" && <>
-            <Intro title="Секретная миссия дня" text={content.secret} />
+            <Intro title="Секретная миссия дня" text={`Выбери доброе действие, которое захочется сделать сегодня. ${content.secret}`} />
             <ChoiceList options={[...content.kindness, "Своё доброе дело"]} selected={progress.kindnessChoice} onSelect={(kindnessChoice) => patch({ kindnessChoice })} />
             <label className="long-field optional"><span>Что именно ты сделала? <em>необязательно</em></span><textarea value={progress.kindnessNote} onChange={(e) => patch({ kindnessNote: e.target.value })} placeholder="Можно оставить маленькую заметку" /></label>
             <ActionButton disabled={!progress.kindnessChoice || (progress.kindnessChoice === "Своё доброе дело" && progress.kindnessNote.trim().length < 3)} onClick={() => complete("kindness", "Добрая миссия выполнена")}>Миссия сделана</ActionButton>
           </>}
           {view === "independence" && <>
-            <Intro title="Что получилось без напоминания?" text="Выбери только то, о чём сегодня действительно вспомнила сама. Эту звезду вечером подтверждает мама." />
+            <Intro title="Что получилось самой?" text="Вспомни маленькое дело, которое сегодня получилось сделать самостоятельно." />
             <ChoiceList options={[...content.independence, "Свой вариант"]} selected={progress.independenceChoice} onSelect={(independenceChoice) => patch({ independenceChoice })} />
             {progress.independenceChoice === "Свой вариант" && <label className="long-field"><span>Что именно получилось самой?</span><textarea value={progress.independenceNote} onChange={(e) => patch({ independenceNote: e.target.value })} placeholder="Напиши коротко" /></label>}
             <ActionButton disabled={!progress.independenceChoice || (progress.independenceChoice === "Свой вариант" && progress.independenceNote.trim().length < 3)} onClick={() => complete("independence", "Суперспособность открыта")}>Я действительно сделала сама</ActionButton>
@@ -544,7 +542,23 @@ function ActivityHeader({ mission, onBack, done }: { mission: Mission; onBack: (
   return <header className={`activity-header ${done ? "mission-complete" : ""}`}><button onClick={onBack} aria-label="Вернуться к маршруту">←</button><span className="screen-icon mission"><MissionIcon id={mission.id}/></span><div><span>{mission.kicker}</span><strong>{mission.title}</strong></div><b>{done ? "Готово" : mission.reward}</b></header>;
 }
 function Intro({ title, text }: { title: string; text: string }) { return <div className="activity-intro"><h1>{title}</h1><p>{text}</p></div>; }
-function LearningProfile() { return <aside className="learning-profile"><span>{EDUCATION_PROFILE.label}</span><strong>Мягкая настройка уровня</strong><p>Это не контрольная. Сейчас начало учебного года: короткие задания помогают спокойно повторить знакомое и подобрать удобный темп.</p></aside>; }
+function LearningHint({ hint, isOpen, onToggle }: { hint: string; isOpen: boolean; onToggle: () => void }) {
+  return <div className="learning-assist"><button type="button" className="learning-hint-button" aria-expanded={isOpen} onClick={onToggle}>{isOpen ? "Скрыть подсказку" : "Подсказка"}</button>{isOpen && <em className="learning-hint-text">{hint}</em>}</div>;
+}
+function LearningVisual({ question }: { question: LearningQuestion }) {
+  const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const kind = question.skill === "word_order" ? "cards" : question.skill === "prepositions" ? "place" : question.skill === "reading" ? "book" : question.skill === "dialogue" ? "talk" : question.skill === "translation" ? "search" : question.kind === "input" ? "write" : question.skill === "vocabulary" ? "leaf" : "grammar";
+  return <span className={`learning-visual visual-${kind}`} aria-hidden="true"><svg viewBox="0 0 48 48">
+    {kind === "cards" && <><rect {...stroke} x="8" y="15" width="23" height="20" rx="4" transform="rotate(-8 8 15)"/><rect {...stroke} x="19" y="12" width="21" height="20" rx="4"/><path {...stroke} d="M24 19h10m-10 6h6"/></>}
+    {kind === "place" && <><path {...stroke} d="M8 31h32M13 31V17h22v14"/><path {...stroke} d="M18 24c2-4 8-4 10 0v4h-10Z"/><circle cx="20" cy="22" r="1.4" fill="currentColor"/><circle cx="26" cy="22" r="1.4" fill="currentColor"/><path {...stroke} d="M22 27h3"/></>}
+    {kind === "book" && <><path {...stroke} d="M10 11c6-2 11 0 14 4v23c-3-4-8-6-14-4Zm28 0c-6-2-11 0-14 4v23c3-4 8-6 14-4Z"/><path {...stroke} d="M15 19h5m-5 6h5m13-6h-5m5 6h-5"/></>}
+    {kind === "talk" && <><path {...stroke} d="M8 12h25v16H19l-7 7v-7H8Z"/><path {...stroke} d="M17 19h9m-9 5h6"/><path {...stroke} d="M36 30h4v8l-4-3Z"/></>}
+    {kind === "search" && <><circle {...stroke} cx="21" cy="21" r="10"/><path {...stroke} d="m29 29 9 9M17 21h8m-4-4v8"/><path d="M34 10h5v5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></>}
+    {kind === "write" && <><path {...stroke} d="m13 34 3-9L31 10l7 7-15 15Z"/><path {...stroke} d="m27 14 7 7M12 37h23"/><path d="M13 34l3-9 6 6Z" fill="currentColor" opacity=".2"/></>}
+    {kind === "leaf" && <><path {...stroke} d="M10 30c0-13 13-19 28-20-1 15-7 28-20 28-5 0-8-3-8-8Z"/><path {...stroke} d="M13 34c7-8 13-13 22-18"/><path {...stroke} d="M23 25h8m-13 5h7"/></>}
+    {kind === "grammar" && <><rect {...stroke} x="9" y="11" width="30" height="26" rx="7"/><path {...stroke} d="M16 29 22 17h4l6 12m-8-8h4m-14 10h20"/><circle cx="34" cy="15" r="2" fill="currentColor" opacity=".35"/></>}
+  </svg></span>;
+}
 function CheckList({ items, selected, onToggle }: { items: string[][]; selected: string[]; onToggle: (id: string) => void }) { return <div className="check-list">{items.map(([id,label],index)=><button className={selected.includes(id)?"checked":""} onClick={()=>onToggle(id)} key={id}><span>{selected.includes(id)?"✓":index+1}</span><strong>{label}</strong></button>)}</div>; }
 function ChoiceList({ options, selected, onSelect }: { options: string[]; selected: string; onSelect: (value: string) => void }) { return <div className="choice-list">{options.map((option,index)=><button className={selected===option?"selected":""} onClick={()=>onSelect(option)} key={option}><span>{String.fromCharCode(65+index)}</span><strong>{option}</strong><i>{selected===option?"✓":""}</i></button>)}</div>; }
 function ActionButton({ children, disabled, onClick }: { children: React.ReactNode; disabled?: boolean; onClick: () => void }) { return <button className="primary-action" disabled={disabled} onClick={onClick}>{children}</button>; }
@@ -633,20 +647,17 @@ function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, s
 }
 
 function approvalSealSvg() {
-  return `<svg width="140" height="140" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <path id="sealTop" d="M 16 72 A 54 54 0 0 1 124 72"/>
-      <path id="sealBottom" d="M 16 79 A 54 54 0 0 0 124 79"/>
-    </defs>
-    <circle cx="70" cy="70" r="63" fill="#F7FAFF" fill-opacity="0.72" stroke="#245AA8" stroke-width="3"/>
-    <circle cx="70" cy="70" r="57" fill="none" stroke="#245AA8" stroke-width="1.2"/>
-    <circle cx="70" cy="70" r="39" fill="none" stroke="#245AA8" stroke-width="1.8"/>
-    <text font-family="Roboto" font-size="6.5" font-weight="700" letter-spacing="0.35" fill="#245AA8"><textPath href="#sealTop" startOffset="50%" text-anchor="middle">ОБЩЕСТВО С ОГРАНИЧЕННОЙ</textPath></text>
-    <text font-family="Roboto" font-size="5.8" font-weight="700" letter-spacing="0.25" fill="#245AA8"><textPath href="#sealBottom" startOffset="50%" text-anchor="middle">ОТВЕТСТВЕННОСТЬЮ «СЛОВОМАМЫ» · Г. КОВРОВ</textPath></text>
-    <text x="70" y="63" text-anchor="middle" font-family="Roboto" font-size="12" font-weight="700" fill="#245AA8">ДЛЯ</text>
-    <text x="70" y="79" text-anchor="middle" font-family="Roboto" font-size="12" font-weight="700" fill="#245AA8">ДОКУМЕНТОВ</text>
-    <circle cx="15" cy="70" r="2.4" fill="#245AA8"/>
-    <circle cx="125" cy="70" r="2.4" fill="#245AA8"/>
+  return `<svg width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="80" cy="80" r="73" fill="#F8FBFF" fill-opacity="0.5" stroke="#245AA8" stroke-width="2.5"/>
+    <circle cx="80" cy="80" r="66" fill="none" stroke="#245AA8" stroke-width="1"/>
+    <circle cx="80" cy="80" r="43" fill="none" stroke="#245AA8" stroke-width="1.8"/>
+    <path d="M23 47h114M23 113h114" stroke="#245AA8" stroke-width="1" opacity="0.72"/>
+    <text x="80" y="26" text-anchor="middle" font-family="Roboto" font-size="5.9" font-weight="700" letter-spacing="0.32" fill="#245AA8">ОБЩЕСТВО С ОГРАНИЧЕННОЙ</text>
+    <text x="80" y="38" text-anchor="middle" font-family="Roboto" font-size="5.9" font-weight="700" letter-spacing="0.24" fill="#245AA8">ОТВЕТСТВЕННОСТЬЮ</text>
+    <text x="80" y="130" text-anchor="middle" font-family="Roboto" font-size="7" font-weight="700" letter-spacing="0.24" fill="#245AA8">«СЛОВОМАМЫ» · Г. КОВРОВ</text>
+    <text x="80" y="74" text-anchor="middle" font-family="Roboto" font-size="13" font-weight="700" letter-spacing="0.5" fill="#245AA8">ДЛЯ</text>
+    <text x="80" y="92" text-anchor="middle" font-family="Roboto" font-size="13" font-weight="700" letter-spacing="0.18" fill="#245AA8">ДОКУМЕНТОВ</text>
+    <circle cx="18" cy="80" r="2.2" fill="#245AA8"/><circle cx="142" cy="80" r="2.2" fill="#245AA8"/>
   </svg>`;
 }
 
@@ -687,9 +698,6 @@ export function buildDayPdfDefinition({ day, progress, stars, tomorrowLimit, rew
   });
   const checkedAt = progress.signedAt ? new Date(progress.signedAt).toLocaleString("ru-RU", { timeZone: APP_TIME_ZONE, dateStyle: "long", timeStyle: "short" }) : dayLabel(day);
   const progressDots = Array.from({ length: 10 }, (_, index) => ({ type: "ellipse" as const, x: 4 + index * 12, y: 6, r1: 3.6, r2: 3.6, color: index < stars ? "#FFB12A" : "#DDE3F2" }));
-  const signatureContent: Content[] = progress.motherSignature
-    ? [{ image: progress.motherSignature, width: 128, height: 42, fit: [128, 42], alignment: "left", margin: [5, 13, 0, 0] }]
-    : [{ text: "", margin: [0, 42, 0, 0] }];
   const definition: TDocumentDefinitions = {
     pageSize: "A4",
     pageMargins: [34, 34, 34, 54],
@@ -707,8 +715,8 @@ export function buildDayPdfDefinition({ day, progress, stars, tomorrowLimit, rew
       ], margin: [0, 0, 0, 12] },
       { absolutePosition: { x: 52, y: 51 }, columns: [{ width: 330, stack: [
         { text: "ПРИКЛЮЧЕНИЯ ВАСИЛИСЫ", style: "eyebrow" },
-        { text: "Мой день - моя история", style: "title", margin: [0, 8, 0, 5] },
-        { text: "Карта маленьких побед, смелых попыток и добрых дел", style: "heroSubtitle" },
+        { text: "Отчёт дня", style: "title", margin: [0, 8, 0, 5] },
+        { text: "Маршрут, задания и результат дня", style: "heroSubtitle" },
         { text: dayLabel(day), style: "date", margin: [0, 13, 0, 0] },
       ] }] },
       { absolutePosition: { x: 457, y: 53 }, columns: [{ width: 104, stack: [
@@ -728,21 +736,19 @@ export function buildDayPdfDefinition({ day, progress, stars, tomorrowLimit, rew
         { width: "*", stack: [{ text: "МАТЕМАТИКА", style: "studyLabel" }, { text: answerLine(mathQuestions, progress.mathAnswers), style: "studyText" }], margin: [0, 0, 7, 0], fillColor: "#F2F7FF" },
         { width: "*", stack: [{ text: "ENGLISH", style: "studyLabel" }, { text: answerLine(englishQuestions, progress.englishAnswers), style: "studyText" }], margin: [7, 0, 0, 0], fillColor: "#FFF1F3" },
       ], columnGap: 0, pageBreak: "before", margin: [0, 8, 0, 22] },
-      { unbreakable: true, table: { widths: ["*", 205], body: [[
+      { unbreakable: true, table: { widths: ["*", 122, 146], body: [[
         { stack: [
           { text: "День принят!", style: "approvalTitle", margin: [0, 2, 0, 7] },
           { text: "Каждая попытка - это новый шаг вперёд!", style: "approvalText" },
           { text: checkedAt, style: "approvalMeta", margin: [0, 16, 0, 0] },
         ] },
-        { stack: [
-          ...signatureContent,
-          { svg: approvalSealSvg(), width: 116, alignment: "right", relativePosition: { x: 8, y: -78 }, margin: [0, 0, 0, -70] },
-        ] },
+        progress.motherSignature ? { image: progress.motherSignature, fit: [108, 38], alignment: "center", margin: [0, 20, 0, 0] } : { text: "" },
+        { svg: approvalSealSvg(), width: 128, alignment: "right", margin: [0, -5, 0, 0] },
       ]] }, layout: { hLineWidth: (index) => index === 0 ? 1.5 : 0, vLineWidth: () => 0, hLineColor: () => "#D7E3F7", paddingLeft: () => 18, paddingRight: () => 18, paddingTop: () => 20, paddingBottom: () => 12 }, margin: [0, 0, 0, 0] },
     ],
     footer: (currentPage, pageCount) => ({
       columns: [
-        { text: "ПРИКЛЮЧЕНИЯ ПРОДОЛЖАЮТСЯ", color: "#5D5FEF", bold: true, fontSize: 8 },
+        { text: "ПРИКЛЮЧЕНИЯ ВАСИЛИСЫ", color: "#5D5FEF", bold: true, fontSize: 8 },
         { text: `${currentPage} / ${pageCount}`, alignment: "right", color: "#8790A8", fontSize: 8 },
       ], margin: [34, 22, 34, 0],
     }),
