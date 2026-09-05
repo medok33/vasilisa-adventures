@@ -119,6 +119,10 @@ export default function Adventure() {
   const [openLearningHints, setOpenLearningHints] = useState<Record<string, boolean>>({});
   const questionStartedAt = useRef<Record<string, number>>({});
   const content = useMemo(() => dailyContent(day), [day]);
+  const todayMissions = useMemo(() => missions.map((mission) => {
+    const copy = mission.id === "order" || mission.id === "kindness" || mission.id === "independence" ? content.missionCopy[mission.id] : null;
+    return copy ? { ...mission, ...copy } : mission;
+  }), [content]);
   const mathQuestions = (learningAssignments?.math ?? []).slice(0, 5);
   const englishQuestions = (learningAssignments?.english ?? []).slice(0, 5);
   const orderItems = useMemo(() => content.order.map((label, index) => [`daily-${index}`, label]), [content.order]);
@@ -389,7 +393,7 @@ export default function Adventure() {
   const draftReadingQuestions = readingReady ? readingQuestionsForRange(readingBook, { from: nextReadingPage, to: Number(progress.readingEnd) }, answeredReadingQuestions) : [];
 
   if (view !== "home" && view !== "wallet" && view !== "journal" && view !== "parent") {
-    const mission = missions.find((item) => item.id === view)!;
+    const mission = todayMissions.find((item) => item.id === view)!;
     return <>
       <main className={`activity-shell ${mission.accent}`}>
         <ActivityHeader mission={mission} onBack={() => goTo("home")} done={progress.done.includes(mission.id)} />
@@ -500,7 +504,7 @@ export default function Adventure() {
 
       <section className="route-section">
         <div className="route-heading"><div><p>Маршрут на сегодня</p><h2>Миссии дня</h2></div><span>Можно идти в любом порядке · каждая попытка помогает двигаться дальше</span></div>
-        <div className="route-grid">{missions.map((mission) => { const done = progress.done.includes(mission.id); const note = mission.id === "reading" ? `${readingBook.title} · чтение в своём темпе` : mission.note; return <article className={`route-card ${mission.accent} ${done ? "done" : ""}`} key={mission.id}><button className="route-main" onClick={() => goTo(mission.id)}><span className="mission-number">{mission.index}</span><span className="mission-symbol"><MissionIcon id={mission.id}/></span><span className="route-copy"><small>{mission.kicker}</small><strong>{mission.title}</strong><p>{note}</p></span><span className="reward-pill">{done ? "Готово" : mission.reward}</span></button></article>; })}</div>
+        <div className="route-grid">{todayMissions.map((mission) => { const done = progress.done.includes(mission.id); const note = mission.id === "reading" ? `${readingBook.title} · чтение в своём темпе` : mission.note; return <article className={`route-card ${mission.accent} ${done ? "done" : ""}`} key={mission.id}><button className="route-main" onClick={() => goTo(mission.id)}><span className="mission-number">{mission.index}</span><span className="mission-symbol"><MissionIcon id={mission.id}/></span><span className="route-copy"><small>{mission.kicker}</small><strong>{mission.title}</strong><p>{note}</p></span><span className="reward-pill">{done ? "Готово" : mission.reward}</span></button></article>; })}</div>
       </section>
 
       <section className="bottom-cards">
