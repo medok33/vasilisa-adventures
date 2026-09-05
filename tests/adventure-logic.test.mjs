@@ -15,6 +15,11 @@ test("daily tasks are stable for one day and differ on the next day", () => {
   assert.equal(new Set(today.math.map((question) => question.id)).size, 5);
 });
 
+test("secret mission rotates without repeating for thirty consecutive days", () => {
+  const secrets = Array.from({ length: 30 }, (_, index) => dailyContent(`2026-10-${String(index + 1).padStart(2, "0")}`).secret);
+  assert.equal(new Set(secrets).size, 30);
+});
+
 test("reading ranges merge and books open sequentially", () => {
   const emerald = BOOKS[0];
   const merged = mergeRanges([], [{ from: 5, to: 20 }, { from: 21, to: 40 }], emerald);
