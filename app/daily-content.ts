@@ -39,6 +39,19 @@ function options(answer: string, distractors: string[], random: () => number) {
   return pick([answer, ...distractors], random, 3);
 }
 
+function rotateDaily<T>(items: readonly T[], day: string, count: number, lane: string) {
+  const dayNumber = Math.floor(new Date(`${day}T12:00:00Z`).getTime() / 86_400_000);
+  const start = (dayNumber + hash(lane)) % items.length;
+  const step = 1 + (hash(`${day}:${lane}:step`) % Math.max(1, items.length - 1));
+  const chosen: T[] = [];
+  for (let index = 0; chosen.length < count && index < items.length * 2; index += 1) {
+    const candidate = items[(start + index * step) % items.length];
+    if (!chosen.includes(candidate)) chosen.push(candidate);
+  }
+  for (const candidate of items) if (chosen.length < count && !chosen.includes(candidate)) chosen.push(candidate);
+  return chosen;
+}
+
 const words = [
   ["📘", "книга", "book", ["room", "window"]], ["🚪", "дверь", "door", ["chair", "shoes"]],
   ["🪟", "окно", "window", ["table", "garden"]], ["🪑", "стул", "chair", ["door", "bed"]],
@@ -83,6 +96,30 @@ const secrets = [
   "Научи младшего или друга чему-то, что хорошо умеешь.",
   "Поблагодари человека за то, что обычно кажется привычным.",
   "Сделай одно полезное дело раньше обычного.",
+  "Найди дома вещь, которая может порадовать близкого, и отнеси её ему.",
+  "Спроси, не нужна ли кому-то помощь с маленьким делом.",
+  "Подготовь место для общего занятия или ужина.",
+  "Скажи человеку рядом, что тебе в нём нравится.",
+  "Сделай паузу и внимательно выслушай близкого человека.",
+  "Придумай маленький способ сделать дома уютнее.",
+  "Оставь на видном месте добрую короткую фразу.",
+  "Помоги вернуть на место общую вещь, которую заметила не на месте.",
+  "Спроси у младшего, во что ему хочется поиграть пять минут.",
+  "Поделись одной хорошей новостью за день.",
+  "Поблагодари человека не за дело, а просто за то, что он рядом.",
+  "Сделай для семьи маленькое открытие: покажи красивую находку или рисунок.",
+  "Выбери спокойное дело, которое можно сделать вместе с кем-то.",
+  "Перед сном вспомни один добрый момент сегодняшнего дня.",
+  "Собери одну вещь, которая понадобится семье завтра.",
+  "Предложи близкому чай, воду или помощь, если заметила, что он устал.",
+  "Сохрани для кого-то место рядом с собой.",
+  "Спроси, как прошёл день, и дослушай ответ до конца.",
+  "Поделись чем-то, что умеешь делать хорошо.",
+  "Сделай маленькое полезное дело в тишине и оставь его без объявления.",
+  "Выбери вещь, которую давно хотела убрать, и верни её на место.",
+  "Нарисуй или напиши кому-то короткое пожелание хорошего дня.",
+  "Помоги накрыть на стол или убрать после общего дела.",
+  "Заметь, кому сегодня хочется сказать «я рядом».",
 ];
 
 export function dailyContent(day: string): DailyContent {
@@ -110,7 +147,7 @@ export function dailyContent(day: string): DailyContent {
   english.push({ id: `${day}-phrase`, icon: phrase[0], label: "Выбери перевод", answer: phrase[1], options: options(phrase[1], [...phrase[2]], random) });
   return {
     math: pick(math, random, math.length), english,
-    kindness: pick(kindness, random, 3), independence: pick(independence, random, 4), order: pick(order, random, 4),
-    secret: pick(secrets, random, 1)[0],
+    kindness: rotateDaily(kindness, day, 3, "kindness"), independence: rotateDaily(independence, day, 4, "independence"), order: rotateDaily(order, day, 4, "order"),
+    secret: rotateDaily(secrets, day, 1, "secret")[0],
   };
 }
