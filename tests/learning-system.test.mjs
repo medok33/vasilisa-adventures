@@ -37,6 +37,23 @@ test("grade-four start-of-year profile limits load and keeps daily variety", () 
   }
 });
 
+test("math day mixes calm number, life and reasoning formats without overload", () => {
+  const compositions = new Set();
+  for (let dayNumber = 1; dayNumber <= 30; dayNumber += 1) {
+    const day = `2026-10-${String(dayNumber).padStart(2, "0")}`;
+    const questions = generateDailyAssignments({ day }).math;
+    const skills = questions.map((question) => question.skill);
+    const counts = [...skills.reduce((map, skill) => map.set(skill, (map.get(skill) ?? 0) + 1), new Map()).values()];
+    assert.equal(questions.length, 5);
+    assert.ok(new Set(skills).size >= 4, `four math skills on ${day}`);
+    assert.ok(Math.max(...counts) <= 2, `no more than two of one skill on ${day}`);
+    assert.ok(skills.some((skill) => ["time", "money", "measurement"].includes(skill)), `life task on ${day}`);
+    assert.ok(skills.some((skill) => ["geometry", "order_operations", "patterns"].includes(skill)), `reasoning task on ${day}`);
+    compositions.add(skills.join(","));
+  }
+  assert.ok(compositions.size >= 12, "neighbouring days do not reuse one math composition");
+});
+
 test("word-order questions expose tappable words instead of requiring typing", () => {
   const questions = Array.from({ length: 90 }, (_, index) => generateDailyAssignments({ day: new Date(Date.UTC(2026, 8, index + 1)).toISOString().slice(0, 10) }).english).flat();
   const wordOrder = questions.find((question) => question.kind === "word_order");

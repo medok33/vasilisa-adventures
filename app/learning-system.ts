@@ -119,6 +119,40 @@ function selectSkills(subject: LearningSubject, count: number, context: Assignme
   return selected.slice(0, count);
 }
 
+const MATH_DAILY_LANES: readonly (readonly MathSkill[])[] = [
+  ["place_value", "addition", "subtraction", "patterns"],
+  ["addition", "subtraction", "multiplication", "division"],
+  ["time", "money", "measurement"],
+  ["geometry", "order_operations", "patterns"],
+  ["equations", "word_problem", "multiplication", "division"],
+];
+
+function selectMathSkills(context: AssignmentContext) {
+  const states = context.states ?? [];
+  const random = randomFor(`${context.day}:math:daily-lanes`);
+  const selected: Array<{ skill: MathSkill; role: AssignmentRole; level: number }> = [];
+  const used = new Set<MathSkill>();
+  const due = shuffle(SUBJECT_SKILLS.math.filter((skill) => dueForReview(stateFor("math", skill, states), context.day)), random) as MathSkill[];
+
+  for (const [index, lane] of MATH_DAILY_LANES.entries()) {
+    const preferred = index === 3 ? due.find((skill) => lane.includes(skill) && !used.has(skill)) : undefined;
+    const available = lane.filter((skill) => !used.has(skill));
+    const skill = preferred ?? pick(available.length ? available : lane, random);
+    used.add(skill);
+    selected.push({
+      skill,
+      role: index < 3 ? "current" : index === 3 ? "reinforcement" : "stretch",
+      level: normalizeLevel(stateFor("math", skill, states).level) + (index === 4 ? 1 : 0),
+    });
+  }
+
+  const reinforcementSkill = due[0];
+  if (reinforcementSkill) {
+    selected[3] = { skill: reinforcementSkill, role: "reinforcement", level: normalizeLevel(stateFor("math", reinforcementSkill, states).level) };
+  }
+  return selected;
+}
+
 const englishWords = [
   ["📘", "книга", "book", ["room", "window"]], ["🚪", "дверь", "door", ["chair", "shoes"]],
   ["🪟", "окно", "window", ["table", "garden"]], ["🪑", "стул", "chair", ["door", "bed"]],
@@ -181,7 +215,9 @@ function makeMath(skill: MathSkill, level: number, random: () => number) {
     case "place_value": {
       const digit = 1 + Math.floor(random() * 9);
       const thousands = 1 + Math.floor(random() * 8);
-      const number = thousands * 10_000 + digit * 1_000 + Math.floor(random() * 900);
+      const number = band <= 1
+        ? digit * 1_000 + Math.floor(random() * 900)
+        : thousands * 10_000 + digit * 1_000 + Math.floor(random() * 900);
       return { templateId: `sr4-math-place-${band % 2}`, label: `Какая цифра стоит в разряде тысяч числа ${number}?`, answer: String(digit), hint: "Раздели число справа налево на единицы, десятки, сотни и тысячи." };
     }
     case "addition": return { templateId: `sr4-math-add-${band % 2}`, label: `${a} + ${b}`, answer: String(a + b), hint: "Запиши числа разряд под разряд и начни с единиц." };
@@ -358,7 +394,7 @@ export function generateDailyAssignments(context: AssignmentContext) {
   const previousTemplates = new Set(context.previousTemplates ?? []);
   const output: Record<LearningSubject, LearningQuestion[]> = { math: [], english: [] };
   for (const subject of ["math", "english"] as const) {
-    const selections = selectSkills(subject, 5, context);
+    const selections = subject === "math" ? selectMathSkills(context) : selectSkills(subject, 5, context);
     output[subject] = selections.map((selection, position) => {
       let candidate = buildQuestion(subject, selection, context.day, position, 0);
       for (let salt = 1; salt <= 400 && (recent.has(candidate.fingerprint) || previousTemplates.has(candidate.templateId)); salt += 1) {
