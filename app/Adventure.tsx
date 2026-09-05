@@ -387,7 +387,6 @@ export default function Adventure() {
   const nextReadingPage = Math.max(readingBook.firstPage, confirmedReadingPage + 1);
   const readingReady = Boolean(!todayReading && progress.readingEnd && Number(progress.readingEnd) >= nextReadingPage && Number(progress.readingEnd) <= readingBook.lastPage);
   const draftReadingQuestions = readingReady ? readingQuestionsForRange(readingBook, { from: nextReadingPage, to: Number(progress.readingEnd) }, answeredReadingQuestions) : [];
-  const readingPotential = todayReading ? readingStarCount(todayReading, true, day) : !readingReady ? 0 : progress.readingMinutes >= 20 ? 2 : 1;
 
   if (view !== "home" && view !== "wallet" && view !== "journal" && view !== "parent") {
     const mission = missions.find((item) => item.id === view)!;
@@ -402,23 +401,34 @@ export default function Adventure() {
             <ActionButton disabled={progress.morningChecks.length !== morningItems.length} onClick={() => complete("morning", "Утренний запуск завершён")}>Завершить утренний запуск</ActionButton>
           </>}
           {view === "reading" && <>
-            <Intro title={readingBook.title} text={needsBookReflection ? "Книга дочитана. Теперь можно сохранить свою книжную заметку." : todayReading ? "Сегодняшнее чтение уже сохранено." : "Укажи, до какой страницы ты дочитала сегодня."} />
-            <details className="book-details"><summary>О книге</summary><span>Страницы издания: {readingBook.firstPage}–{readingBook.lastPage}</span><span>ISBN {readingBook.isbn}</span></details>
+            <Intro title={readingBook.title} text={needsBookReflection ? "Книга дочитана. Теперь можно сохранить свою книжную заметку." : todayReading ? "Ты прочитала свой отрывок. Хочешь — ответь на один вопрос о нём." : "Укажи, до какой страницы ты дочитала сегодня."} />
             {!todayReading && !needsBookReflection && <>
-              <div className="reading-levels">{[{m:15,s:1,t:"Разминка"},{m:20,s:2,t:"Исследователь"},{m:30,s:2,t:"Книжный герой"}].map((level) => <button key={level.m} className={progress.readingMinutes === level.m ? "selected" : ""} onClick={() => patch({ readingMinutes: level.m })}><strong>{level.m} мин</strong><span>{level.t}</span><b>{level.s} ⭐</b></button>)}</div>
+              <div className="reading-levels">{[{m:15,s:1,t:"Разминка"},{m:20,s:2,t:"Исследователь"},{m:30,s:2,t:"Книжный герой"}].map((level) => <button key={level.m} className={progress.readingMinutes === level.m ? "selected" : ""} onClick={() => patch({ readingMinutes: level.m })}><strong>{level.m} мин</strong><span>{level.t}</span><b>{level.s === 1 ? "маленькая награда" : "две маленькие награды"}</b></button>)}</div>
               <div className="reading-entry"><div><span>Сегодня начинаем</span><strong>{confirmedReadingPage < readingBook.firstPage ? "с первой страницы книги" : `со страницы ${nextReadingPage}`}</strong></div><label><span>Дочитала до</span><input aria-label="До какой страницы дочитала сегодня" inputMode="numeric" min={nextReadingPage} max={readingBook.lastPage} value={progress.readingEnd} onChange={(e) => patch({ readingEnd: e.target.value })} placeholder="№" /></label></div>
               {readingReady && <p className="reading-next-step">Страницы сохранятся сразу. Дальше будет {draftReadingQuestions.length === 1 ? "один короткий вопрос о главной мысли" : "спокойное завершение чтения без вопроса"}.</p>}
-              <div className="live-result"><span>Уже за чтение</span><strong>{readingPotential} ⭐</strong>{readingPotential >= 1 && <small>На смысловой точке можно открыть ещё одну бонусную звезду.</small>}</div>
               <ActionButton disabled={!readingReady} onClick={beginReading}>Сохранить прочитанные страницы</ActionButton>
             </>}
             {todayReading && <>
-              <div className="reading-saved-range"><span>Сегодня сохранено</span><strong>страницы {todayReading.from}–{todayReading.to} · {todayReading.minutes} минут</strong></div>
-              {sessionQuestions.map((question) => <section className="reading-question" key={question.id}><span>Главная мысль этого отрывка</span><small className="reading-focus">В книжном чек-листе: {question.focus}</small><strong>{question.prompt}</strong><div className="reading-options">{question.options.map((option) => <button disabled={todayReading.finished} key={option} className={todayReading.answers[question.id] === option ? "selected" : ""} onClick={() => answerReadingQuestion(question.id, option)}>{option}</button>)}</div>{todayReading.answers[question.id] && !isReadingAnswerCorrect(question, todayReading.answers[question.id]) && <small>Страницы и звёзды за чтение уже сохранены. Можно спокойно выбрать другой вариант.</small>}</section>)}
-              {sessionQuestions.length === 0 && <Feedback>Страницы и звёзды за чтение уже сохранены. В этом отрывке нет новой контрольной точки — сегодня вопрос не нужен.</Feedback>}
-              {currentReadingCorrect && <div className="reading-answer-ok"><strong>Главная мысль найдена · бонусная ⭐ открыта</strong><span>Это дополнительная награда к уже сохранённому чтению.</span></div>}
-              <div className="live-result"><span>{currentReadingCorrect ? "Бонусная звезда открыта" : "За чтение уже сохранено"}</span><strong>{readingPotential} ⭐</strong>{!currentReadingCorrect && sessionQuestions.length > 0 && <small>Если захочется, можно выбрать ответ или завершить чтение сейчас.</small>}</div>
-              {!todayReading.finished && <ActionButton onClick={finishReading}>Завершить чтение</ActionButton>}
-              {todayReading.finished && <div className="reading-finished"><strong>Чтение на сегодня завершено</strong><span>{readingPotential} ⭐ сохранено в результате дня</span></div>}
+              <div className="reading-saved-range"><span>Твой сегодняшний отрывок</span><strong>страницы {todayReading.from}–{todayReading.to} · {todayReading.minutes} минут</strong></div>
+              {sessionQuestions.map((question) => {
+                const answer = todayReading.answers[question.id];
+                const correct = isReadingAnswerCorrect(question, answer);
+                return <section className="reading-question" key={question.id}>
+                  <span>Василиса, один вопрос о твоей книге</span>
+                  <strong>{question.prompt}</strong>
+                  <div className="reading-options">{question.options.map((option) => <button disabled={todayReading.finished} key={option} className={answer === option ? "selected" : ""} onClick={() => answerReadingQuestion(question.id, option)}>{option}</button>)}</div>
+                  <label className="reading-own-answer">
+                    <small>Хочешь — расскажи по-своему</small>
+                    <input disabled={todayReading.finished} aria-label={`Свой ответ на вопрос ${question.id}`} value={answer ?? ""} onChange={(event) => answerReadingQuestion(question.id, event.target.value)} placeholder="Напиши, как ты это поняла" />
+                  </label>
+                  {answer && <div className={`reading-answer-feedback ${correct ? "is-correct" : "is-retry"}`}>
+                    {correct ? <><i aria-hidden="true">✦</i><div><strong>Верно! Ты заметила главное.</strong><span>В твоём маршруте появилась дополнительная звёздочка.</span></div></> : <div><strong>Можно подумать ещё чуть-чуть</strong><span>Перечитай вопрос и выбери другой вариант или расскажи по-своему.</span></div>}
+                  </div>}
+                </section>;
+              })}
+              {sessionQuestions.length === 0 && <Feedback>Сегодня ты просто читала — это тоже важная часть приключения.</Feedback>}
+              {!todayReading.finished && <ActionButton onClick={finishReading}>Закрыть чтение на сегодня</ActionButton>}
+              {todayReading.finished && <div className="reading-finished"><strong>Чтение на сегодня завершено</strong><span>Ты отлично прошла сегодняшний отрывок.</span></div>}
             </>}
             {showBookReflection && <section className="book-reflection"><span>Книжная заметка · без оценок</span><h2>Василиса, вот ты и дочитала книгу «{readingBook.title}»</h2><p>Поделись своими впечатлениями: как ты поняла эту историю, что хочется отметить, что понравилось или расстроило. Текст никто не проверяет по образцу — важны только твои мысли.</p><div className="dad-book-bonus"><b>Папин персональный бонус: +10 ⭐</b><small>За завершённую книгу и твою собственную заметку — содержание текста не оценивается.</small></div><label><span>Мои мысли о книге</span><textarea disabled={Boolean(bookReflection.savedAt) || closed} value={bookReflection.text} onChange={(event) => updateBookReflection(event.target.value)} maxLength={3000} placeholder="Можно начать так: «Для меня эта книга о…»" /></label>{!bookReflection.savedAt ? <button className="primary-action" disabled={!bookReflection.text.trim() || closed} onClick={saveBookReflection}>Сохранить заметку и получить +10 ⭐ от папы</button> : <div className="book-reflection-saved"><strong>Твоя книжная заметка сохранена · +10 ⭐ от папы</strong><span>Это твой личный взгляд на историю — он не оценивается.</span></div>}</section>}
             {showBookReflection && Boolean(bookReflection.savedAt) && nextBook(readingBook.id) && <button className="next-book" onClick={() => { patch({ readingBook: nextBook(readingBook.id)!.id, readingStart: "", readingEnd: "", readingAnswer: "" }); goTo("home"); }}>Следующая книга: «{nextBook(readingBook.id)!.title}» →</button>}

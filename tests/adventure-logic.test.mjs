@@ -40,6 +40,15 @@ test("every book has a short checklist of important reading milestones", () => {
   }
 });
 
+test("reading answers accept prepared wording variants and the same meaning in the child's words", () => {
+  const emeraldQuestion = BOOKS[0].questions.find((question) => question.id === "em-1-meaning");
+  const pippiQuestion = BOOKS[2].questions.find((question) => question.id === "pi-5-meaning");
+  assert.equal(isReadingAnswerCorrect(emeraldQuestion, "Она хотела попросить Гудвина вернуть её домой!"), true);
+  assert.equal(isReadingAnswerCorrect(emeraldQuestion, "Элли нужна была помощь Гудвина, чтобы попасть домой"), true);
+  assert.equal(isReadingAnswerCorrect(pippiQuestion, "Пеппи бережёт друзей и помогает им"), true);
+  assert.equal(isReadingAnswerCorrect(pippiQuestion, "Пеппи любит конфеты"), false);
+});
+
 test("a reading range opens at most one important checklist question", () => {
   const questions = readingQuestionsForRange(BOOKS[0], { from: 5, to: 30 });
   assert.deepEqual(questions.map((question) => question.id), ["em-1-meaning"]);

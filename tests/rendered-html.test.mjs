@@ -15,8 +15,17 @@ test("child-facing feedback supports calm retries without blame styling", async 
   assert.doesNotMatch(adventure, /Неверный ответ|Ошибка ничего|Не всё сошлось|Есть неточности|Пока не совпало|не получилось или было сложно|за это не ругают/);
   assert.doesNotMatch(adventure, /["']wrong["']/);
   assert.doesNotMatch(styles, /\.wrong/);
-  assert.match(adventure, /Страницы и звёзды за чтение уже сохранены/);
+  assert.match(adventure, /Можно подумать ещё чуть-чуть/);
+  assert.match(adventure, /Верно! Ты заметила главное/);
   assert.match(adventure, /папин бонус/i);
+});
+
+test("reading prompt stays child-facing and hides edition metadata", async () => {
+  const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
+  assert.match(adventure, /Василиса, один вопрос о твоей книге/);
+  assert.match(adventure, /Хочешь — расскажи по-своему/);
+  assert.match(adventure, /Ты прочитала свой отрывок\. Хочешь — ответь на один вопрос о нём/);
+  assert.doesNotMatch(adventure, /В книжном чек-листе|Главная мысль этого отрывка|Страницы издания|ISBN|Сегодняшнее чтение уже сохранено/);
 });
 
 test("learning screens keep five questions but hide technical learning profile from the child", async () => {
