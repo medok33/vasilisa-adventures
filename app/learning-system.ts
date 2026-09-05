@@ -94,31 +94,6 @@ function dueForReview(state: SkillState, day: string) {
   return state.state === "reinforce" || (state.reviewDueDates ?? []).some((due) => due <= day);
 }
 
-function selectSkills(subject: LearningSubject, count: number, context: AssignmentContext) {
-  const states = context.states ?? [];
-  const skills = [...SUBJECT_SKILLS[subject]] as LearningSkill[];
-  const weekIndex = Math.floor(new Date(`${context.day}T12:00:00Z`).getTime() / 604_800_000);
-  const random = randomFor(`${weekIndex}:${subject}:skills`);
-  const due = shuffle(skills.filter((skill) => dueForReview(stateFor(subject, skill, states), context.day)), random);
-  const normal = shuffle(skills.filter((skill) => !due.includes(skill)), random);
-  const selected: Array<{ skill: LearningSkill; role: AssignmentRole; level: number }> = [];
-  const ordered = [...new Set([...normal, ...due, ...skills])];
-  const currentSkills = ordered.slice(0, Math.max(1, count - 2));
-  const focus = currentSkills[0] ?? skills[0];
-
-  for (const skill of currentSkills) {
-    selected.push({ skill, role: "current", level: normalizeLevel(stateFor(subject, skill, states).level) });
-  }
-
-  const reinforcement = due.find((skill) => !currentSkills.includes(skill))
-    ?? ordered.find((skill) => !currentSkills.includes(skill))
-    ?? currentSkills[1]
-    ?? focus;
-  selected.push({ skill: reinforcement, role: "reinforcement", level: normalizeLevel(stateFor(subject, reinforcement, states).level) });
-  selected.push({ skill: focus, role: "stretch", level: normalizeLevel(normalizeLevel(stateFor(subject, focus, states).level) + 1) });
-  return selected.slice(0, count);
-}
-
 const MATH_DAILY_LANES: readonly (readonly MathSkill[])[] = [
   ["place_value", "addition", "subtraction", "patterns"],
   ["addition", "subtraction", "multiplication", "division"],
@@ -126,6 +101,42 @@ const MATH_DAILY_LANES: readonly (readonly MathSkill[])[] = [
   ["geometry", "order_operations", "patterns"],
   ["equations", "word_problem", "multiplication", "division"],
 ];
+
+// Один English-день — это не длинный тест, а небольшая разведка с разными
+// действиями. Первые четыре слота всегда дают разные способы поработать с
+// языком; пятый оставлен для мягкого повторения слабой темы.
+const ENGLISH_DAILY_LANES: readonly (readonly EnglishSkill[])[] = [
+  ["vocabulary", "spelling"],
+  ["grammar_to_be", "grammar_have_got", "grammar_can", "grammar_present_simple", "prepositions"],
+  ["word_order"],
+  ["reading", "translation", "dialogue"],
+  ["translation", "dialogue", "prepositions", "spelling", "grammar_can"],
+];
+
+function selectEnglishSkills(context: AssignmentContext) {
+  const states = context.states ?? [];
+  const random = randomFor(`${context.day}:english:daily-lanes`);
+  const due = shuffle(SUBJECT_SKILLS.english.filter((skill) => dueForReview(stateFor("english", skill, states), context.day)), random) as EnglishSkill[];
+  const selected: Array<{ skill: EnglishSkill; role: AssignmentRole; level: number }> = [];
+  const used = new Set<EnglishSkill>();
+
+  for (const [index, lane] of ENGLISH_DAILY_LANES.entries()) {
+    const available = lane.filter((skill) => !used.has(skill));
+    const skill = pick(available.length ? available : lane, random);
+    used.add(skill);
+    selected.push({
+      skill,
+      role: index < 3 ? "current" : index === 3 ? "reinforcement" : "stretch",
+      level: normalizeLevel(stateFor("english", skill, states).level) + (index === 4 ? 1 : 0),
+    });
+  }
+
+  const reinforcementSkill = due.find((skill) => !selected.slice(0, 4).some((item) => item.skill === skill));
+  if (reinforcementSkill) {
+    selected[4] = { skill: reinforcementSkill, role: "stretch", level: normalizeLevel(stateFor("english", reinforcementSkill, states).level) };
+  }
+  return selected;
+}
 
 function selectMathSkills(context: AssignmentContext) {
   const states = context.states ?? [];
@@ -268,7 +279,7 @@ function makeMath(skill: MathSkill, level: number, random: () => number) {
 
 function makeEnglish(skill: EnglishSkill, level: number, random: () => number) {
   const band = normalizeLevel(level);
-  const [icon, russian, english, wrong] = pick(englishWords, random);
+  const [, russian, english, wrong] = pick(englishWords, random);
   const choice = (answer: string, distractors: readonly string[]) => shuffle([answer, ...distractors], random).slice(0, 3);
   const subjects = [
     ["I", "am", "have"], ["You", "are", "have"], ["We", "are", "have"],
@@ -276,13 +287,13 @@ function makeEnglish(skill: EnglishSkill, level: number, random: () => number) {
   ] as const;
   const [pronoun, toBe, have] = pick(subjects, random);
   switch (skill) {
-    case "vocabulary": return { templateId: `sr4-en-vocabulary-${band % 2}`, label: russian, answer: english, kind: "choice" as const, options: choice(english, wrong), icon, hint: "Посмотри на картинку и вспомни знакомое слово." };
-    case "spelling": return { templateId: `sr4-en-spelling-${band % 2}`, label: `Напиши по-английски: ${russian}`, answer: english, kind: "input" as const, icon, hint: `Слово начинается с буквы «${english[0]}».` };
+    case "vocabulary": return { templateId: `sr4-en-vocabulary-${band % 2}`, label: `Выбери знакомое слово: ${russian}`, answer: english, kind: "choice" as const, options: choice(english, wrong), hint: "Вспомни, как это слово звучит по-английски." };
+    case "spelling": return { templateId: `sr4-en-spelling-${band % 2}`, label: `Напиши по-английски: ${russian}`, answer: english, kind: "input" as const, hint: `Слово начинается с буквы «${english[0]}».` };
     case "word_order": {
       const verb = pick(["like", "see", "read", "have", "can help"] as const, random);
       const object = pick(["this book", "a red dress", "my dog", "the green park", "a small cat", "your school"] as const, random);
       const sentence = `${pronoun} ${verb} ${object}`;
-      return { templateId: `sr4-en-order-${band % 2}`, label: "Собери предложение из слов", answer: sentence, kind: "word_order" as const, options: shuffle(sentence.split(" "), random), icon: "🧩", hint: "Сначала выбери того, кто действует, затем само действие." };
+      return { templateId: `sr4-en-order-${band % 2}`, label: "Собери предложение, нажимая на слова", answer: sentence, kind: "word_order" as const, options: shuffle(sentence.split(" "), random), hint: "Сначала выбери того, кто действует, затем само действие." };
     }
     case "grammar_to_be": {
       const ending = pick(["ten years old", "happy today", "at school", "ready", "in the room", "my friend", "very kind", "in the park"] as const, random);
@@ -325,12 +336,12 @@ function makeEnglish(skill: EnglishSkill, level: number, random: () => number) {
         ["The apples are ___ the basket.", "in", ["on", "under"]],
         ["The children are ___ the room.", "in", ["on", "under"]],
       ] as const, random);
-      return { templateId: `sr4-en-preposition-${band % 2}`, label, answer, kind: "choice" as const, options: choice(answer, distractors), icon: "📍", hint: "Представь, где находится предмет: внутри, сверху или снизу." };
+      return { templateId: `sr4-en-preposition-${band % 2}`, label, answer, kind: "choice" as const, options: choice(answer, distractors), hint: "Представь, где находится предмет: внутри, сверху или снизу." };
     }
     case "reading": {
       const name = pick(["Tom", "Ann", "Ben", "Kate", "Sam", "Nina", "Alex", "Mary"] as const, random);
       const item = pick(["a dog", "a cat", "a red book", "a blue bag", "a new bike", "a green hat", "two pencils", "a small bird"] as const, random);
-      return { templateId: `sr4-en-reading-${band % 2}`, label: `${name} has ${item}. Who has ${item}?`, answer: name, kind: "input" as const, icon: "📖", hint: "Найди в первой части имя человека." };
+      return { templateId: `sr4-en-reading-${band % 2}`, label: `${name} has ${item}. Who has ${item}?`, answer: name, kind: "input" as const, hint: "Найди в первой части имя человека." };
     }
     case "dialogue": {
       const name = pick(["Ann", "Ben", "Kate", "Tom", "Mary", "Sam"] as const, random);
@@ -341,7 +352,7 @@ function makeEnglish(skill: EnglishSkill, level: number, random: () => number) {
         ["— Good morning!\n— ___", "Good morning!", ["Good night!", "Thank you!"]],
         ["— What is your name?\n— ___", `My name is ${name}.`, ["I'm fine.", "See you!"]],
       ] as const, random);
-      return { templateId: `sr4-en-dialogue-${band % 2}`, label: `${name}: ${prompt}`, answer, kind: "choice" as const, options: choice(answer, distractors), icon: "💬", hint: "Выбери вежливый ответ, который подходит к реплике." };
+      return { templateId: `sr4-en-dialogue-${band % 2}`, label: `${name}: ${prompt}`, answer, kind: "choice" as const, options: choice(answer, distractors), hint: "Выбери вежливый ответ, который подходит к реплике." };
     }
     default: {
       const [name, russianName] = pick([
@@ -358,7 +369,7 @@ function makeEnglish(skill: EnglishSkill, level: number, random: () => number) {
       const source = `${name} has got ${englishThing}.`;
       const translation = `У ${russianName} есть ${russianThing}.`;
       const distractors = shuffle(things.filter((item) => item[0] !== englishThing).map((item) => `У ${russianName} есть ${item[1]}.`), random).slice(0, 2);
-      return { templateId: `sr4-en-translation-${band % 2}`, label: `Выбери перевод: ${source}`, answer: translation, kind: "choice" as const, options: choice(translation, distractors), icon: "🔎", hint: "Найди знакомые слова и сначала определи, о ком говорится." };
+      return { templateId: `sr4-en-translation-${band % 2}`, label: `Выбери перевод: ${source}`, answer: translation, kind: "choice" as const, options: choice(translation, distractors), hint: "Найди знакомые слова и сначала определи, о ком говорится." };
     }
   }
 }
@@ -384,7 +395,6 @@ function buildQuestion(subject: LearningSubject, selection: { skill: LearningSki
     kind: generated.kind,
     options: generated.options ? [...generated.options] : undefined,
     hint: generated.hint,
-    icon: generated.icon,
     fingerprint,
   } satisfies LearningQuestion;
 }
@@ -394,7 +404,7 @@ export function generateDailyAssignments(context: AssignmentContext) {
   const previousTemplates = new Set(context.previousTemplates ?? []);
   const output: Record<LearningSubject, LearningQuestion[]> = { math: [], english: [] };
   for (const subject of ["math", "english"] as const) {
-    const selections = subject === "math" ? selectMathSkills(context) : selectSkills(subject, 5, context);
+    const selections = subject === "math" ? selectMathSkills(context) : selectEnglishSkills(context);
     output[subject] = selections.map((selection, position) => {
       let candidate = buildQuestion(subject, selection, context.day, position, 0);
       for (let salt = 1; salt <= 400 && (recent.has(candidate.fingerprint) || previousTemplates.has(candidate.templateId)); salt += 1) {
