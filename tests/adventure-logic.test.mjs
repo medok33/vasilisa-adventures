@@ -20,6 +20,25 @@ test("secret mission rotates without repeating for thirty consecutive days", () 
   assert.equal(new Set(secrets).size, 30);
 });
 
+test("daily home missions stay varied and remain small choices", () => {
+  let previous = null;
+  for (let index = 1; index <= 30; index += 1) {
+    const content = dailyContent(`2026-11-${String(index).padStart(2, "0")}`);
+    assert.equal(content.kindness.length, 3);
+    assert.equal(content.independence.length, 4);
+    assert.equal(content.order.length, 4);
+    assert.equal(new Set(content.kindness).size, 3);
+    assert.equal(new Set(content.independence).size, 4);
+    assert.equal(new Set(content.order).size, 4);
+    if (previous) {
+      assert.notDeepEqual(content.kindness, previous.kindness, `kindness changes on day ${index}`);
+      assert.notDeepEqual(content.independence, previous.independence, `independence changes on day ${index}`);
+      assert.notDeepEqual(content.order, previous.order, `order changes on day ${index}`);
+    }
+    previous = content;
+  }
+});
+
 test("reading ranges merge and books open sequentially", () => {
   const emerald = BOOKS[0];
   const merged = mergeRanges([], [{ from: 5, to: 20 }, { from: 21, to: 40 }], emerald);
