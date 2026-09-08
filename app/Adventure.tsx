@@ -8,6 +8,7 @@ import { dailyContent } from "./daily-content";
 import { emptyLearningHistory, recordLearningAttempt, type LearningHistory, type LearningSubject } from "./learning-history";
 import { isAnswerCorrect, type LearningQuestion } from "./learning-system";
 import { weeklyAdventure, weeklyFragmentCount } from "./adventure-story";
+import { safeAnalyticsExport, type ParentAnalytics } from "./parent-analytics";
 
 type MissionId = "morning" | "reading" | "math" | "english" | "order" | "kindness" | "independence";
 type View = "home" | "wallet" | "journal" | "parent" | MissionId;
@@ -637,6 +638,45 @@ function DadContact({ contacts }: { contacts: DadContacts | null }) {
   return <section className="dad-contact"><div className="dad-contact-copy"><span className="dad-avatar">П</span><div><strong>Папа на связи</strong><span>{contacts ? "Можно позвонить или написать" : "Контакты доступны после настройки сервера"}</span></div></div>{contacts && <div className="dad-contact-actions"><a className="phone" href={`tel:${contacts.phone}`} aria-label="Позвонить папе"><ContactIcon/><span><b>Позвонить</b><small>сразу по телефону</small></span></a><a className="vk" href={contacts.vkUrl} target="_blank" rel="noreferrer" aria-label="Написать папе во ВКонтакте"><ContactMark kind="vk"/><span><b>ВКонтакте</b><small>личные сообщения</small></span></a><a className="max" href={contacts.maxUrl} target="_blank" rel="noreferrer" aria-label="Написать папе в MAX"><ContactMark kind="max"/><span><b>MAX</b><small>открыть приложение</small></span></a></div>}</section>;
 }
 
+function ParentAnalyticsPanel({ day }: { day: string }) {
+  const [period, setPeriod] = useState<7 | 14 | 30>(7);
+  const [report, setReport] = useState<ParentAnalytics | null>(null);
+  const [analyticsState, setAnalyticsState] = useState<"loading" | "ready" | "error">("loading");
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/analytics?day=${encodeURIComponent(day)}&period=${period}`)
+      .then(async (response) => { if (!response.ok) throw new Error("analytics"); return response.json() as Promise<ParentAnalytics>; })
+      .then((data) => { if (active) { setReport(data); setAnalyticsState("ready"); } })
+      .catch(() => { if (active) setAnalyticsState("error"); });
+    return () => { active = false; };
+  }, [day, period]);
+  function downloadAnalytics() {
+    if (!report) return;
+    const blob = new Blob([`${JSON.stringify(safeAnalyticsExport(report), null, 2)}\n`], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url; link.download = `vasilisa-learning-${period}-days-${day}.json`; link.click();
+    URL.revokeObjectURL(url);
+  }
+  const date = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+  return <section className="parent-analytics">
+    <div className="analytics-heading"><div><span>Только для взрослых</span><h2>Учебная динамика</h2><p>Наблюдения помогают подобрать спокойное повторение. Это не оценка ребёнка.</p></div><div className="period-switch" aria-label="Период отчёта">{([7,14,30] as const).map((value) => <button className={period === value ? "active" : ""} disabled={period === value} onClick={() => { setAnalyticsState("loading"); setPeriod(value); }} key={value}>{value} дней</button>)}</div></div>
+    {analyticsState === "loading" && <div className="analytics-empty">Собираю понятный отчёт…</div>}
+    {analyticsState === "error" && <div className="analytics-empty">Отчёт сейчас недоступен. Данные заданий при этом сохранены.</div>}
+    {analyticsState === "ready" && report && <>
+      <div className="analytics-range">{date(report.from)} — {date(report.to)}</div>
+      {report.summary.firstAttemptTotal === 0 ? <div className="analytics-empty"><strong>Наблюдений пока мало</strong><span>Здесь появится динамика после первых проверенных заданий.</span></div> : <>
+        <div className="analytics-summary"><article><span>С первой попытки</span><strong>{report.summary.firstAttemptAccuracy}%</strong><small>{report.summary.firstAttemptCorrect} из {report.summary.firstAttemptTotal}</small></article><article><span>Исправлено самостоятельно</span><strong>{report.summary.correctedAfterRetry}</strong><small>ответов после новой попытки</small></article><article><span>Подсказки</span><strong>{report.summary.hintsUsed}</strong><small>использованы без штрафа</small></article><article><span>Среднее время</span><strong>{report.summary.averageResponseSeconds} сек</strong><small>на одну попытку</small></article></div>
+        <div className="subject-analytics">{report.subjects.map((subject) => <article key={subject.subject}><div><span>{subject.label}</span><b>{subject.stats.firstAttemptAccuracy}%</b></div><i><em style={{width:`${subject.stats.firstAttemptAccuracy}%`}}/></i><small>{subject.stats.firstAttemptCorrect} из {subject.stats.firstAttemptTotal} с первой попытки · исправлено {subject.stats.correctedAfterRetry}</small></article>)}</div>
+      </>}
+      <div className="weak-topics"><h3>Что мягко закрепить</h3>{report.weakTopics.length ? report.weakTopics.map((topic) => <article key={`${topic.subject}-${topic.skill}`}><div><strong>{topic.label}</strong><span>{topic.subject === "math" ? "Математика" : "English"} · {topic.firstAttemptAccuracy}% с первой попытки</span></div><b>{topic.nextReviewDate ? `Повторение ${date(topic.nextReviewDate)}` : "Наблюдаем без спешки"}</b></article>) : <p>Сейчас нет тем, которым требуется отдельное закрепление.</p>}</div>
+      <details className="skills-details"><summary>Уровни по всем навыкам</summary><div>{report.skills.map((skill) => <article key={`${skill.subject}-${skill.skill}`}><span>{skill.subject === "math" ? "Математика" : "English"}</span><strong>{skill.label} · уровень {skill.level}</strong><p>{skill.explanation}</p></article>)}</div></details>
+      <button className="analytics-download" onClick={downloadAnalytics}>Скачать безопасный отчёт</button>
+      <p className="analytics-safety">В файле только сводные числа и уровни: без ответов, паролей и системных данных.</p>
+    </>}
+  </section>;
+}
+
 function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, stars, tomorrowLimit, rewardBudget, onBack, onOpenMission, onOpenWallet }: { day: string; progress: Progress; patch: (next: Partial<Progress>) => void; closed: boolean; onCloseDay: (signature: string) => void; onReopenDay: () => void; stars: number; tomorrowLimit: number; rewardBudget: number; onBack: () => void; onOpenMission: (id: MissionId) => void; onOpenWallet: () => void }) {
   const baseWithoutReserve = stars - (progress.reserveStar ? 1 : 0);
   const bookReflections = BOOKS.flatMap((book) => {
@@ -655,6 +695,7 @@ function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, s
   return <main className="plain-screen parent-screen">
     <ScreenTop title="Мамина проверка" subtitle="Мамин раздел" icon="parent" onBack={onBack}/>
     <section className="parent-summary"><div><span>Итог Василисы</span><strong>{stars}/10 ⭐</strong></div><div><span>Лимит завтра</span><strong>{tomorrowLimit} ₽</strong></div></section>
+    <ParentAnalyticsPanel day={day}/>
     {bookReflections.length > 0 && <section className="parent-book-reflections"><div className="panel-title"><span className="panel-emblem bonus">★</span><div><small>Чтение без оценок</small><h2>Книжные заметки Василисы</h2></div></div>{bookReflections.map(({ book, reflection }) => <article key={book.id}><div><strong>{book.title}</strong><span>Папин персональный бонус · +{reflection.bonusStars} ⭐</span></div><p>{reflection.text}</p></article>)}</section>}
     <section className="review-panel"><div className="panel-title"><span className="panel-emblem">✓</span><div><small>Маршрут дня</small><h2>Что отмечено сегодня</h2></div></div><p className="review-hint">Нажмите на невыполненное задание, чтобы сразу открыть его.</p>{missions.map(m => { const done = progress.done.includes(m.id); return <button className={done ? "completed" : "needs-action"} disabled={done || closed} onClick={() => onOpenMission(m.id)} key={m.id}><span>{done ? "✓" : ""}</span><strong>{m.title}</strong><small>{done ? "выполнено" : "Открыть →"}</small></button>; })}</section>
     <section className="parent-settings"><div className="panel-title compact"><span className="panel-emblem bonus">★</span><div><small>Бонус</small><h2>Запасная звезда</h2></div></div><label className={(baseWithoutReserve === 9 && !closed) ? "" : "disabled"}><input type="checkbox" disabled={baseWithoutReserve !== 9 || closed} checked={progress.reserveStar} onChange={e => patch({ reserveStar: e.target.checked })}/><span><strong>Заменить одну пропущенную миссию</strong><small>Доступно только при результате 9/10. Выше 10/10 итог не поднимется.</small></span></label></section>
