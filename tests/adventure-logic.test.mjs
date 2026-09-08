@@ -3,6 +3,42 @@ import test from "node:test";
 import { dailyContent, HOME_MISSION_POOL_SIZES } from "../app/daily-content.ts";
 import { BOOKS, cleanBookReflections, cleanDailyReadingSession, cleanRanges, continuousPage, isBookFinished, isReadingAnswerCorrect, mergeRanges, nextBook, readingQuestionsForRange, readingStarCount } from "../app/books.ts";
 import { emptyLearningHistory, recordLearningAttempt } from "../app/learning-history.ts";
+import { WEEKLY_WORLD_COUNT, mondayOf, weeklyAdventure, weeklyFragmentCount } from "../app/adventure-story.ts";
+
+test("weekly adventure keeps one world for seven chapters and rotates next Monday", () => {
+  const days = ["2026-09-07", "2026-09-08", "2026-09-09", "2026-09-10", "2026-09-11", "2026-09-12", "2026-09-13"];
+  const stories = days.map((day, completed) => weeklyAdventure(day, completed));
+  assert.equal(new Set(stories.map((story) => story.world.name)).size, 1);
+  assert.deepEqual(stories.map((story) => story.chapterIndex), [0, 1, 2, 3, 4, 5, 6]);
+  assert.equal(stories[0].world.chapters.length, 7);
+  assert.notEqual(weeklyAdventure("2026-09-14", 0).world.name, stories[0].world.name);
+  assert.ok(WEEKLY_WORLD_COUNT >= 5);
+});
+
+test("chapter position and finds are restored from saved mission progress", () => {
+  const start = weeklyAdventure("2026-09-08", 0);
+  const middle = weeklyAdventure("2026-09-08", 3);
+  const restored = weeklyAdventure("2026-09-08", 3);
+  const finish = weeklyAdventure("2026-09-08", 7);
+  assert.equal(start.nextMissionIndex, 0);
+  assert.deepEqual(middle, restored);
+  assert.equal(middle.nextMissionIndex, 3);
+  assert.equal(middle.foundItems.length, 3);
+  assert.equal(finish.nextMissionIndex, null);
+  assert.equal(finish.finalScene, true);
+});
+
+test("weekly fragments only count successful days in the current Monday week", () => {
+  const history = [
+    { day: "2026-09-06", stars: 10 },
+    { day: "2026-09-07", stars: 7 },
+    { day: "2026-09-08", stars: 10 },
+  ];
+  assert.equal(mondayOf("2026-09-09"), "2026-09-07");
+  assert.equal(weeklyFragmentCount("2026-09-09", history, 6), 2);
+  assert.equal(weeklyFragmentCount("2026-09-09", history, 7), 3);
+  assert.equal(weeklyFragmentCount("2026-09-14", history, 7), 1);
+});
 
 test("daily tasks are stable for one day and differ on the next day", () => {
   const today = dailyContent("2026-08-27");
