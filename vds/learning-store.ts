@@ -12,6 +12,7 @@ import {
   type LearningSubject,
   type SkillState,
 } from "../app/learning-system.ts";
+import { SKILL_LABELS, type AnalyticsStats, type ParentAnalytics } from "../app/parent-analytics.ts";
 
 const dataDir = process.env.DATA_DIR || "/data";
 const databaseFile = path.join(dataDir, "learning.sqlite");
@@ -348,4 +349,66 @@ export function learningDiagnostics() {
     skillProgress: count("skill_progress"),
     adaptationLog: count("adaptation_log"),
   };
+}
+
+type AnalyticsRow = {
+  subject: LearningSubject;
+  skill: string;
+  assignment_id: string;
+  first_correct: number | null;
+  attempt_count: number;
+  max_attempt: number | null;
+  ever_correct: number | null;
+  hint_used: number | null;
+  response_ms: number | null;
+};
+
+function analyticsStats(rows: AnalyticsRow[]): AnalyticsStats {
+  const attempted = rows.filter((row) => row.attempt_count > 0 && row.first_correct !== null);
+  const responseEvents = rows.reduce((sum, row) => sum + row.attempt_count, 0);
+  const responseMs = rows.reduce((sum, row) => sum + Number(row.response_ms ?? 0), 0);
+  const firstAttemptCorrect = attempted.filter((row) => row.first_correct === 1).length;
+  return {
+    assignments: rows.length,
+    firstAttemptCorrect,
+    firstAttemptTotal: attempted.length,
+    firstAttemptAccuracy: attempted.length ? Math.round(firstAttemptCorrect / attempted.length * 100) : 0,
+    correctedAfterRetry: attempted.filter((row) => row.first_correct === 0 && row.ever_correct === 1 && Number(row.max_attempt) > 1).length,
+    hintsUsed: rows.filter((row) => row.hint_used === 1).length,
+    averageResponseSeconds: responseEvents ? Math.round(responseMs / responseEvents / 1000) : 0,
+  };
+}
+
+function skillExplanation(state: string, stats: AnalyticsStats) {
+  if (state === "increase") return "Уровень вырос после серии уверенных дней.";
+  if (state === "reinforce") return "Тема вернётся в коротком спокойном повторении.";
+  if (state === "hold") return "Уровень сохранён: полезно ещё немного практики.";
+  if (!stats.firstAttemptTotal) return "Пока нет попыток — просто собираем наблюдения.";
+  return "Пока собираем наблюдения и не торопимся менять уровень.";
+}
+
+export function getLearningAnalytics(endDay: string, period: 7 | 14 | 30): ParentAnalytics {
+  const database = db();
+  const from = addDays(endDay, -(period - 1));
+  const rows = database.prepare(`SELECT a.subject,i.skill,a.id AS assignment_id,
+    MAX(CASE WHEN t.attempt_number=1 THEN t.correct END) AS first_correct,
+    COUNT(t.id) AS attempt_count,MAX(t.attempt_number) AS max_attempt,
+    MAX(t.correct) AS ever_correct,MAX(t.hint_used) AS hint_used,SUM(t.response_ms) AS response_ms
+    FROM daily_assignments a JOIN learning_items i ON i.id=a.item_id
+    LEFT JOIN attempts t ON t.assignment_id=a.id
+    WHERE a.day BETWEEN ? AND ? GROUP BY a.id,a.subject,i.skill`).all(from, endDay) as AnalyticsRow[];
+  const progressRows = database.prepare("SELECT subject,skill,level,state,review_due_json FROM skill_progress").all() as Array<{ subject: LearningSubject; skill: string; level: number; state: string; review_due_json: string }>;
+  const progress = new Map(progressRows.map((row) => [`${row.subject}:${row.skill}`, row]));
+  const subjects = (["math", "english"] as const).map((subject) => ({ subject, label: subject === "math" ? "Математика" : "English", stats: analyticsStats(rows.filter((row) => row.subject === subject)) }));
+  const skills = (["math", "english"] as const).flatMap((subject) => SUBJECT_SKILLS[subject].map((skill) => {
+    const state = progress.get(`${subject}:${skill}`);
+    const stats = analyticsStats(rows.filter((row) => row.subject === subject && row.skill === skill));
+    const reviewDueDates = state ? JSON.parse(state.review_due_json || "[]") as string[] : [];
+    const status = state?.state ?? "collecting";
+    return { subject, skill, label: SKILL_LABELS[skill] ?? skill, level: Math.max(0, Number(state?.level ?? 1)), state: status, explanation: skillExplanation(status, stats), reviewDueDates, stats };
+  }));
+  const weakTopics = skills.filter((skill) => skill.stats.firstAttemptTotal > 0 && (skill.stats.firstAttemptAccuracy < 80 || skill.state === "reinforce"))
+    .sort((left, right) => left.stats.firstAttemptAccuracy - right.stats.firstAttemptAccuracy || right.stats.firstAttemptTotal - left.stats.firstAttemptTotal)
+    .slice(0, 6).map((skill) => ({ subject: skill.subject, skill: skill.skill, label: skill.label, firstAttemptAccuracy: skill.stats.firstAttemptAccuracy, nextReviewDate: skill.reviewDueDates.find((date) => date >= endDay) ?? null }));
+  return { period, from, to: endDay, summary: analyticsStats(rows), subjects, skills, weakTopics };
 }
