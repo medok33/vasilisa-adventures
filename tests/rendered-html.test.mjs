@@ -55,6 +55,20 @@ test("home screen presents a persistent seven-step weekly adventure without extr
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
 });
 
+test("parent analytics offers 7, 14 and 30 day read-only summaries without child answers", async () => {
+  const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
+  const analytics = await readFile(new URL("../app/parent-analytics.ts", import.meta.url), "utf8");
+  const vdsRoute = await readFile(new URL("../vds/analytics-route.ts", import.meta.url), "utf8");
+  const build = await readFile(new URL("../scripts/build-vds.sh", import.meta.url), "utf8");
+  assert.match(adventure, /Учебная динамика/);
+  assert.match(adventure, /\(\[7,14,30\] as const\)/);
+  assert.match(adventure, /Это не оценка ребёнка/);
+  assert.match(adventure, /без ответов, паролей и системных данных/);
+  assert.doesNotMatch(analytics, /expectedAnswer|password|token/i);
+  assert.match(vdsRoute, /getLearningAnalytics/);
+  assert.match(build, /vds\/analytics-route\.ts/);
+});
+
 test("learning hints can be opened and closed while their use remains in progress analytics", async () => {
   const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
