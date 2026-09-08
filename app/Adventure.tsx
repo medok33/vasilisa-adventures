@@ -7,6 +7,7 @@ import { BOOKS, cleanBookReflections, cleanRanges, continuousPage, getBook, getR
 import { dailyContent } from "./daily-content";
 import { emptyLearningHistory, recordLearningAttempt, type LearningHistory, type LearningSubject } from "./learning-history";
 import { isAnswerCorrect, type LearningQuestion } from "./learning-system";
+import { weeklyAdventure, weeklyFragmentCount } from "./adventure-story";
 
 type MissionId = "morning" | "reading" | "math" | "english" | "order" | "kindness" | "independence";
 type View = "home" | "wallet" | "journal" | "parent" | MissionId;
@@ -149,8 +150,8 @@ export default function Adventure() {
   const rewardBudget = earnedStars * 15;
   const savingsTransfer = Math.min(Math.floor(rewardBudget / 10) * 10, progress.savingsTransfer);
   const tomorrowLimit = 100 + rewardBudget - savingsTransfer;
-  const weekDays = useMemo(() => history.filter((item) => item.day < day).slice(0, 6), [day, history]);
-  const weeklyFragments = weekDays.filter((item) => item.stars >= 7).length + (earnedStars >= 7 ? 1 : 0);
+  const story = useMemo(() => weeklyAdventure(day, progress.done.length), [day, progress.done.length]);
+  const weeklyFragments = useMemo(() => weeklyFragmentCount(day, history, earnedStars), [day, earnedStars, history]);
 
   useEffect(() => {
     const restoreView = () => setView(viewFromHash(window.location.hash));
@@ -490,7 +491,7 @@ export default function Adventure() {
       </header>
 
       <section className={`game-hero mood-${earnedStars < 3 ? "start" : earnedStars < 6 ? "curious" : earnedStars < 9 ? "brave" : "shine"}`} id="today-anchor">
-        <div className="hero-content"><p className="hero-label">День 1 · Солнечная экспедиция</p><h1>Твой день.<br/>Твой маршрут.</h1><p>Семь коротких миссий для ума, характера и хорошего настроения. Начинай с любой.</p><span className="hero-mood">{earnedStars < 3 ? "Василиса готова начинать" : earnedStars < 6 ? "Уже вошла во вкус!" : earnedStars < 9 ? "Вот это уверенный темп!" : "Сегодня всё сияет!"}</span><div className="hero-actions"><button onClick={() => goTo(missions.find((m) => !progress.done.includes(m.id))?.id ?? "journal")}>{earnedStars === 10 ? "Записать итог дня" : "Следующая миссия"}<span aria-hidden="true">→</span></button><div className="hero-progress"><b>{progress.done.length}/7</b><span>миссий готово</span></div></div></div>
+        <div className="hero-content"><p className="hero-label">Глава {story.chapterIndex + 1} из 7 · {story.world.name}</p><h1>{story.chapter.title}</h1><p>{story.chapter.goal}. Семь коротких миссий можно проходить в любом порядке.</p><span className="hero-mood">{story.finalScene ? "Глава завершена — все находки собраны!" : earnedStars < 3 ? "Василиса готова начинать" : earnedStars < 6 ? "Уже вошла во вкус!" : earnedStars < 9 ? "Вот это уверенный темп!" : "Сегодня всё сияет!"}</span><div className="hero-actions"><button onClick={() => goTo(missions.find((m) => !progress.done.includes(m.id))?.id ?? "journal")}>{story.finalScene ? "Записать итог дня" : "Следующая миссия"}<span aria-hidden="true">→</span></button><div className="hero-progress"><b>{progress.done.length}/7</b><span>миссий готово</span></div></div></div>
         <picture className="hero-art"><span className="hero-sparkles" aria-hidden="true"><i/><i/><i/></span><img src="/vasilisa-hero-cartoon-v4.webp" alt="Мультяшная Василиса с двумя косами держит светящуюся звезду" /></picture>
       </section>
 
@@ -500,7 +501,13 @@ export default function Adventure() {
         <div className="tomorrow-stat"><span>Откроется завтра</span><strong>{tomorrowLimit} ₽</strong><small>После проверки мамой</small></div>
       </section>
 
-      <section className="weekly-card"><div><span>Большая миссия недели</span><h2>Собери 5 солнечных фрагментов</h2><p>Фрагмент открывается за день с 7 или более звёздами. В конце недели выбери одно большое семейное приключение.</p></div><div className="weekly-fragments" aria-label={`${Math.min(5, weeklyFragments)} из 5 фрагментов`}>{Array.from({length:5},(_,index)=><i className={index<weeklyFragments?"filled":""} key={index}>★</i>)}<strong>{Math.min(5, weeklyFragments)}/5</strong></div></section>
+      <section className="weekly-card"><div><span>{story.world.subtitle}</span><h2>{weeklyFragments === 5 ? `Открыто: ${story.world.bigAdventure}` : "Собери 5 солнечных фрагментов"}</h2><p>{weeklyFragments === 5 ? "Большое приключение недели открыто. Выберите вместе удобный день — это не обязательное задание." : "Фрагмент появляется за день с 7 или более звёздами. Пропущенный день не отнимает уже собранное."}</p></div><div className="weekly-fragments" aria-label={`${weeklyFragments} из 5 фрагментов`}>{Array.from({length:5},(_,index)=><i className={index<weeklyFragments?"filled":""} key={index}>★</i>)}<strong>{weeklyFragments}/5</strong></div></section>
+
+      <section className={`chapter-map ${story.finalScene ? "chapter-complete" : ""}`} aria-label={`Карта главы: ${story.completed} из 7 миссий`}>
+        <div className="chapter-map-copy"><span>Глава {story.chapterIndex + 1} · {story.chapter.title}</span><strong>{story.finalScene ? "Маршрут пройден!" : `Следующая находка ждёт на шаге ${story.completed + 1}`}</strong><p>{story.finalScene ? "Василиса добралась до финальной сцены дня. Можно сохранить впечатления в дневнике." : "Каждая готовая миссия двигает героиню по карте и открывает маленькую находку."}</p></div>
+        <div className="chapter-path">{todayMissions.map((mission, index) => { const done = index < story.completed; const current = !story.finalScene && index === story.nextMissionIndex; const nextMission = missions.find((item) => !progress.done.includes(item.id))?.id ?? mission.id; return <button type="button" className={`${done ? "done" : ""} ${current ? "current" : ""}`} onClick={() => goTo(done ? mission.id : nextMission)} aria-label={`Шаг ${index + 1}: ${done ? `найдено — ${story.world.finds[index]}` : current ? "следующий шаг" : "впереди"}`} key={mission.id}><i>{done ? "✓" : index + 1}</i><small>{done ? story.world.finds[index] : `шаг ${index + 1}`}</small>{current && <b aria-hidden="true">В</b>}</button>; })}</div>
+        <div className="chapter-finds"><span>Находки главы</span><strong>{story.foundItems.length ? story.foundItems.join(" · ") : "Первая появится после любой готовой миссии"}</strong></div>
+      </section>
 
       <section className="route-section">
         <div className="route-heading"><div><p>Маршрут на сегодня</p><h2>Миссии дня</h2></div><span>Можно идти в любом порядке · каждая попытка помогает двигаться дальше</span></div>
