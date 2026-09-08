@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { safeAnalyticsExport } from "../app/parent-analytics.ts";
 
 test("VDS store persists assignments and every correction attempt", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "vasilisa-learning-"));
@@ -26,6 +27,49 @@ test("VDS store persists assignments and every correction attempt", async () => 
     const wordOrder = store.getOrCreateAssignments("2026-09-10").english.find((item) => item.kind === "word_order");
     assert.ok(wordOrder, "tappable word-order kind survives the SQLite compatibility layer");
     assert.ok(wordOrder.options.length >= 3);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("parent analytics matches stored attempts and stays read-only", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "vasilisa-analytics-"));
+  process.env.DATA_DIR = directory;
+  try {
+    const store = await import(`../vds/learning-store.ts?test=${Date.now()}-analytics`);
+    const assignments = store.getOrCreateAssignments("2026-09-08");
+    const [first, second] = assignments.math;
+    store.recordAttempts("2026-09-08", "math", [{ questionId: first.id, answer: "try", hintUsed: true, responseMs: 12_000 }]);
+    store.recordAttempts("2026-09-08", "math", [{ questionId: first.id, answer: first.answer, responseMs: 8_000 }]);
+    store.recordAttempts("2026-09-08", "math", [{ questionId: second.id, answer: second.answer, responseMs: 10_000 }]);
+    const before = store.learningDiagnostics();
+    const report = store.getLearningAnalytics("2026-09-08", 7);
+    assert.deepEqual(store.learningDiagnostics(), before);
+    assert.equal(report.from, "2026-09-02");
+    assert.equal(report.summary.assignments, 10);
+    assert.equal(report.summary.firstAttemptTotal, 2);
+    assert.equal(report.summary.firstAttemptCorrect, 1);
+    assert.equal(report.summary.firstAttemptAccuracy, 50);
+    assert.equal(report.summary.correctedAfterRetry, 1);
+    assert.equal(report.summary.hintsUsed, 1);
+    assert.equal(report.summary.averageResponseSeconds, 10);
+    assert.equal(report.skills.length, 24);
+    const exported = JSON.stringify(safeAnalyticsExport({ ...report, expectedAnswer: "secret", subjects: report.subjects.map((subject) => ({ ...subject, answer: "secret" })) }));
+    assert.doesNotMatch(exported, /secret|expectedAnswer|prompt/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("empty parent analytics has every skill and a calm empty state", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "vasilisa-empty-analytics-"));
+  process.env.DATA_DIR = directory;
+  try {
+    const store = await import(`../vds/learning-store.ts?test=${Date.now()}-empty-analytics`);
+    const report = store.getLearningAnalytics("2026-09-08", 30);
+    assert.equal(report.summary.firstAttemptTotal, 0);
+    assert.equal(report.skills.length, 24);
+    assert.deepEqual(report.weakTopics, []);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
