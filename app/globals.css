@@ -12,7 +12,7 @@
 }
 
 * { box-sizing: border-box; }
-html { color-scheme: light; background: var(--canvas); scroll-behavior: smooth; }
+html { color-scheme: light; background: var(--canvas); scroll-behavior: auto; scroll-padding-block: 100px; }
 body { margin: 0; color: var(--ink); background: radial-gradient(circle at 50% -20%, #fff 0, #f5f5f7 45%); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
 button, input, textarea { font: inherit; }
 button { color: inherit; -webkit-tap-highlight-color: transparent; }
@@ -641,3 +641,74 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .learning-hint-button:hover{background:#fff2bd}.learning-hint-button:active{transform:scale(.98)}
 .learning-hint-button[aria-expanded="true"]{background:#fff0af}
 .learning-hint-text{display:block;max-width:430px;padding:11px 13px;border:1px solid #f0df9d;border-left:4px solid #e7c95b;border-radius:0 14px 14px 0;background:#fffaf0;color:#6f5a22;font-style:normal;font-size:13px;line-height:1.45}
+
+/* UI-005: a readable adventure, with a clear way back on every screen. */
+:root { --ink: #24344c; --muted: #58677b; --canvas: #f0f5fc; }
+.activity-header { grid-template-columns: auto 42px minmax(0,1fr) auto; }
+.screen-top { grid-template-columns: auto minmax(0,1fr); }
+.screen-top.has-icon { grid-template-columns: auto 42px minmax(0,1fr); }
+.activity-header>div,.screen-top>div { min-width: 0; }
+.activity-header>button.back-button,.screen-top>button.back-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  width: auto; min-width: 96px; min-height: 48px; height: auto; padding: 11px 13px;
+  border: 1px solid #b5cbe6; border-radius: 15px; color: #224c80;
+  background: #eaf3ff; box-shadow: 0 3px 0 #d2e1f4; cursor: pointer;
+}
+.back-button svg { width: 21px; height: 21px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
+.activity-header .back-button span,.screen-top .back-button span { font-size: 15px; font-weight: 750; color: inherit; }
+.back-button:active { transform: translateY(2px); box-shadow: none; }
+.activity-header strong,.screen-top strong { font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; }
+.activity-header>div>span,.screen-top>div>span { font-size: 12px; line-height: 1.4; }
+.activity-header>b { font-size: 12px; }
+.activity-intro h1 { font-size: clamp(28px,4.6vw,44px); line-height: 1.13; letter-spacing: -.035em; }
+.activity-intro p,.check-list strong,.choice-list strong,.primary-action { font-size: 16px; line-height: 1.5; }
+.activity-card { border: 1px solid color-mix(in srgb,var(--accent,#2475d9) 14%,white); }
+.route-copy small { font-size: 12px; letter-spacing: .035em; }
+.route-copy p { color: #58677b; font-size: 14px; }
+.route-card:nth-child(2) .route-copy p { color: #e0f4ef; }
+.field-pair span,.long-field>span,.reading-entry span,.reading-question p,
+.book-reflection p,.book-reflection label>span,.reading-levels span,
+.feedback,.learning-hint-text,.word-sentence>span { font-size: 14px; line-height: 1.5; }
+.learning-hint-button { min-height: 44px; font-size: 14px; }
+.reading-options button,.word-options button,.word-bank button,.word-sentence button { min-height: 48px; font-size: 16px; line-height: 1.4; }
+.reading-levels button { min-height: 88px; }
+.reading-levels strong { font-size: 16px; }
+.reading-levels b { font-size: 13px; }
+.primary-action { min-height: 54px; }
+.chapter-map-copy p,.chapter-next p,.weekly-story-note { font-size: 14px; line-height: 1.5; }
+.chapter-path button { min-height: 48px; }
+.chapter-path button small { font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
+.journal-sheet label>span,.goal-editor label>span { font-size: 14px; }
+.journal-sheet textarea,.goal-editor input,.long-field textarea { font-size: 16px; }
+.app-shell,.activity-shell,.plain-screen { padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
+[id] { scroll-margin-block-start: 100px; }
+@media (max-width: 700px) {
+  body { background: #f0f5fc; }
+  .activity-header,.screen-top { top: max(7px,env(safe-area-inset-top)); gap: 9px; border-color: #dce6f2; background: rgba(255,255,255,.96); }
+  .activity-header { grid-template-columns: auto minmax(0,1fr) auto; }
+  .activity-header>.screen-icon,.screen-top>.screen-icon { display: none; }
+  .screen-top.has-icon { grid-template-columns: auto minmax(0,1fr); }
+  .activity-header>button.back-button,.screen-top>button.back-button { min-width: 88px; padding-inline: 10px; }
+  .activity-card { padding: 24px 17px; }
+  .activity-intro { margin-bottom: 24px; }
+  .activity-intro h1 { font-size: clamp(28px,7.6vw,34px); }
+  .route-copy strong { font-size: 20px; line-height: 1.2; }
+  .route-copy small { font-size: 12px; }
+  .route-copy p { font-size: 14px; }
+  .mobile-nav button { min-height: 56px; font-size: 12px; color: #596a80; }
+  .mobile-nav button span { line-height: 1.3; }
+  .reading-levels span { font-size: 12px; white-space: normal; overflow: visible; }
+  .reading-levels button { min-height: 88px; padding: 12px 6px; }
+  .check-list button,.choice-list button { grid-template-columns: 32px minmax(0,1fr) auto; padding: 13px 11px; gap: 10px; }
+  .check-list button>span,.choice-list button>span { width: 30px; height: 34px; }
+  .chapter-path { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px 8px; }
+  .chapter-path::before { display: none; }
+  .learning-task-copy strong,.word-prompt strong { font-size: 18px; }
+  .word-prompt { grid-template-columns: 44px minmax(0,1fr); }
+  .learning-visual { width: 44px; height: 44px; }
+  .learning-task-action,.english-response { gap: 16px; }
+  .journal-sheet,.goal-panel,.allocation-panel { padding: 22px 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

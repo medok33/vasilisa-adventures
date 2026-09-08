@@ -9,6 +9,7 @@ import { emptyLearningHistory, recordLearningAttempt, type LearningHistory, type
 import { isAnswerCorrect, type LearningQuestion } from "./learning-system";
 import { weeklyAdventure, weeklyFragmentCount } from "./adventure-story";
 import { safeAnalyticsExport, type ParentAnalytics } from "./parent-analytics";
+import { createViewNavigation } from "./view-navigation";
 
 type MissionId = "morning" | "reading" | "math" | "english" | "order" | "kindness" | "independence";
 type View = "home" | "wallet" | "journal" | "parent" | MissionId;
@@ -69,9 +70,9 @@ type Mission = {
 
 const missions: Mission[] = [
   { id: "morning", index: "01", kicker: "Начало дня", title: "Утренний запуск", note: "4 простых шага для бодрого старта", reward: "1 ⭐", accent: "sun" },
-  { id: "reading", index: "02", kicker: "Главный квест", title: "Изумрудная книга", note: "Чтение, страницы и вопрос по сюжету", reward: "до 3 ⭐", accent: "mint" },
-  { id: "math", index: "03", kicker: "Тренировка", title: "Шифр экспедиции", note: "До 5 коротких заданий для повторения", reward: "2 ⭐", accent: "blue" },
-  { id: "english", index: "04", kicker: "Разведка", title: "Слова вокруг нас", note: "До 5 коротких заданий без перегруза", reward: "1 ⭐", accent: "coral" },
+  { id: "reading", index: "02", kicker: "Чтение", title: "Изумрудная книга", note: "Читай и делись впечатлениями", reward: "до 3 ⭐", accent: "mint" },
+  { id: "math", index: "03", kicker: "Математика", title: "Шифр экспедиции", note: "Решай короткие задачки в своём темпе", reward: "2 ⭐", accent: "blue" },
+  { id: "english", index: "04", kicker: "Английский", title: "Слова вокруг нас", note: "Открывай слова и собирай фразы", reward: "1 ⭐", accent: "coral" },
   { id: "order", index: "05", kicker: "Домашняя миссия", title: "Пять минут порядка", note: "Комната, стол, одежда и обувь", reward: "1 ⭐", accent: "amber" },
   { id: "kindness", index: "06", kicker: "Секретная миссия", title: "Заметить другого", note: "Выбери одно настоящее доброе дело", reward: "1 ⭐", accent: "rose" },
   { id: "independence", index: "07", kicker: "Суперспособность", title: "Без напоминания", note: "Что сегодня получилось сделать самой?", reward: "1 ⭐", accent: "violet" },
@@ -106,6 +107,8 @@ function viewFromHash(hash: string): View {
 export default function Adventure() {
   const [day] = useState(currentDay);
   const [view, setView] = useState<View>("home");
+  const navigation = useRef(createViewNavigation<View>("home"));
+  const restoreScroll = useRef(0);
   const [progress, setProgress] = useState<Progress>(emptyProgress);
   const [todayLimit, setTodayLimit] = useState(100);
   const [closed, setClosed] = useState(false);
@@ -155,11 +158,24 @@ export default function Adventure() {
   const weeklyFragments = useMemo(() => weeklyFragmentCount(day, history, earnedStars), [day, earnedStars, history]);
 
   useEffect(() => {
-    const restoreView = () => setView(viewFromHash(window.location.hash));
+    const previousRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    const restoreView = () => {
+      const next = viewFromHash(window.location.hash);
+      restoreScroll.current = navigation.current.restore(next, window.history.state?.adventureScroll);
+      setView(next);
+    };
+    const rememberScroll = () => {
+      navigation.current.remember(window.scrollY);
+      window.history.replaceState({ ...window.history.state, adventureScroll: window.scrollY }, "");
+    };
     restoreView();
+    window.addEventListener("scroll", rememberScroll, { passive: true });
     window.addEventListener("hashchange", restoreView);
     window.addEventListener("popstate", restoreView);
     return () => {
+      window.history.scrollRestoration = previousRestoration;
+      window.removeEventListener("scroll", rememberScroll);
       window.removeEventListener("hashchange", restoreView);
       window.removeEventListener("popstate", restoreView);
     };
@@ -199,9 +215,7 @@ export default function Adventure() {
   }, [closed]);
 
   useLayoutEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
+    window.scrollTo({ top: restoreScroll.current, left: 0, behavior: "instant" });
   }, [view]);
 
   useEffect(() => {
@@ -217,12 +231,18 @@ export default function Adventure() {
 
   function patch(next: Partial<Progress>) { if (!closed) setProgress((current) => ({ ...current, ...next })); }
   function goTo(next: View) {
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    if (next === view) return;
+    navigation.current.remember(window.scrollY);
+    window.history.replaceState({ ...window.history.state, adventureScroll: window.scrollY }, "");
+    restoreScroll.current = navigation.current.open(next);
     const hash = next === "home" ? "" : `#${viewHashes[next]}`;
-    window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}${hash}`);
+    window.history.pushState({ adventureScroll: restoreScroll.current, adventureDepth: (window.history.state?.adventureDepth ?? 0) + 1 }, "", `${window.location.pathname}${window.location.search}${hash}`);
     flushSync(() => setView(next));
-    document.scrollingElement?.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }));
+  }
+  function goBack() {
+    navigation.current.remember(window.scrollY);
+    if (window.history.state?.adventureDepth > 0) window.history.back();
+    else goTo("home");
   }
   function reopenDay() {
     setProgress((current) => ({
@@ -398,7 +418,7 @@ export default function Adventure() {
     const mission = todayMissions.find((item) => item.id === view)!;
     return <>
       <main className={`activity-shell ${mission.accent}`}>
-        <ActivityHeader mission={mission} onBack={() => goTo("home")} done={progress.done.includes(mission.id)} />
+        <ActivityHeader mission={mission} onBack={goBack} done={progress.done.includes(mission.id)} />
         <section className={`activity-card ${closed ? "is-locked" : ""}`}>
           {closed && <DayLockedBanner onUnlock={reopenDay} />}
           {view === "morning" && <>
@@ -478,9 +498,9 @@ export default function Adventure() {
     </>;
   }
 
-  if (view === "wallet") return <><WalletScreen progress={progress} patch={patch} todayLimit={todayLimit} tomorrowLimit={tomorrowLimit} rewardBudget={rewardBudget} closed={closed} onUnlock={reopenDay} onBack={() => goTo("home")} />{bottomNav}</>;
-  if (view === "journal") return <><JournalScreen day={day} progress={progress} patch={patch} history={history} historyLoading={historyLoading} dadContacts={dadContacts} closed={closed} onUnlock={reopenDay} onNotifyDad={notifyDad} onBack={() => goTo("home")} />{bottomNav}</>;
-  if (view === "parent") return <><ParentScreen day={day} progress={progress} patch={patch} closed={closed} onCloseDay={closeDay} onReopenDay={reopenDay} stars={earnedStars} tomorrowLimit={tomorrowLimit} rewardBudget={rewardBudget} onBack={() => goTo("home")} onOpenMission={(id) => goTo(id)} onOpenWallet={() => goTo("wallet")} />{bottomNav}</>;
+  if (view === "wallet") return <><WalletScreen progress={progress} patch={patch} todayLimit={todayLimit} tomorrowLimit={tomorrowLimit} rewardBudget={rewardBudget} closed={closed} onUnlock={reopenDay} onBack={goBack} />{bottomNav}</>;
+  if (view === "journal") return <><JournalScreen day={day} progress={progress} patch={patch} history={history} historyLoading={historyLoading} dadContacts={dadContacts} closed={closed} onUnlock={reopenDay} onNotifyDad={notifyDad} onBack={goBack} />{bottomNav}</>;
+  if (view === "parent") return <><ParentScreen day={day} progress={progress} patch={patch} closed={closed} onCloseDay={closeDay} onReopenDay={reopenDay} stars={earnedStars} tomorrowLimit={tomorrowLimit} rewardBudget={rewardBudget} onBack={goBack} onOpenMission={(id) => goTo(id)} onOpenWallet={() => goTo("wallet")} />{bottomNav}</>;
 
   return (
     <main className="app-shell">
@@ -561,7 +581,10 @@ function ContactIcon() { return <img src="/icon-contact-v1.webp" alt="" aria-hid
 function ContactMark({ kind }: { kind: "vk" | "max" }) { return <span className={`contact-mark ${kind}`} aria-hidden="true">{kind === "vk" ? "VK" : "MAX"}</span>; }
 
 function ActivityHeader({ mission, onBack, done }: { mission: Mission; onBack: () => void; done: boolean }) {
-  return <header className={`activity-header ${done ? "mission-complete" : ""}`}><button onClick={onBack} aria-label="Вернуться к маршруту">←</button><span className="screen-icon mission"><MissionIcon id={mission.id}/></span><div><span>{mission.kicker}</span><strong>{mission.title}</strong></div><b>{done ? "Готово" : mission.reward}</b></header>;
+  return <header className={`activity-header ${done ? "mission-complete" : ""}`}><BackButton onBack={onBack}/><span className="screen-icon mission"><MissionIcon id={mission.id}/></span><div><span>{mission.kicker}</span><strong>{mission.title}</strong></div><b>{done ? "Готово" : mission.reward}</b></header>;
+}
+function BackButton({ onBack }: { onBack: () => void }) {
+  return <button type="button" className="back-button" onClick={onBack} aria-label="Назад, на прежнее место"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 5-7 7 7 7M3 12h18"/></svg><span>Назад</span></button>;
 }
 function Intro({ title, text }: { title: string; text: string }) { return <div className="activity-intro"><h1>{title}</h1><p>{text}</p></div>; }
 function LearningHint({ hint, isOpen, onToggle }: { hint: string; isOpen: boolean; onToggle: () => void }) {
@@ -600,7 +623,7 @@ function Celebration({ event }: { event: CelebrationEvent }) {
   </div>;
 }
 
-function ScreenTop({ title, subtitle, onBack, icon }: { title: string; subtitle: string; onBack: () => void; icon?: "wallet" | "journal" | "parent" }) { return <header className="screen-top"><button onClick={onBack}>←</button>{icon && <span className={`screen-icon ${icon}`}><NavIcon name={icon}/></span>}<div><strong>{title}</strong><span>{subtitle}</span></div></header>; }
+function ScreenTop({ title, subtitle, onBack, icon }: { title: string; subtitle: string; onBack: () => void; icon?: "wallet" | "journal" | "parent" }) { return <header className={`screen-top ${icon ? "has-icon" : ""}`}><BackButton onBack={onBack}/>{icon && <span className={`screen-icon ${icon}`}><NavIcon name={icon}/></span>}<div><strong>{title}</strong><span>{subtitle}</span></div></header>; }
 function WalletScreen({ progress, patch, todayLimit, tomorrowLimit, rewardBudget, closed, onUnlock, onBack }: { progress: Progress; patch: (next: Partial<Progress>) => void; todayLimit: number; tomorrowLimit: number; rewardBudget: number; closed: boolean; onUnlock: () => void; onBack: () => void }) {
   const left = Math.max(0, progress.goalAmount - progress.balance);
   const percent = progress.goalAmount ? Math.min(100, Math.round(progress.balance / progress.goalAmount * 100)) : 0;
