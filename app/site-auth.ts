@@ -41,6 +41,19 @@ export async function secureUsernameEqual(left: string, right: string) {
   return secureTextEqual(left.toLowerCase(), right.toLowerCase());
 }
 
+export type SiteCredential = { username: string; password: string };
+
+export async function matchesSiteCredentials(username: string, password: string, credentials: SiteCredential[]) {
+  const results = await Promise.all(credentials.map(async (credential) => {
+    const [usernameMatches, passwordMatches] = await Promise.all([
+      secureUsernameEqual(username, credential.username),
+      secureTextEqual(password, passwordWithUppercaseFirstCharacter(credential.password)),
+    ]);
+    return usernameMatches && passwordMatches;
+  }));
+  return results.some(Boolean);
+}
+
 export function passwordWithUppercaseFirstCharacter(value: string) {
   return value.length === 0 ? value : `${value[0].toUpperCase()}${value.slice(1)}`;
 }

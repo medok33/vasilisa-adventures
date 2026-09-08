@@ -9,8 +9,10 @@ export async function proxy(request: NextRequest) {
 
   const username = process.env.SITE_AUTH_USERNAME;
   const password = process.env.SITE_AUTH_PASSWORD;
+  const childUsername = process.env.CHILD_AUTH_USERNAME;
+  const childPassword = process.env.CHILD_AUTH_PASSWORD;
   const secret = process.env.SITE_AUTH_SECRET;
-  if (!username || !password || !secret) {
+  if (!username || !password || !childUsername || !childPassword || !secret) {
     if (path.startsWith("/api/")) return NextResponse.json({ error: "Авторизация сайта не настроена" }, { status: 503 });
     return new NextResponse("Авторизация сайта не настроена", { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } });
   }
