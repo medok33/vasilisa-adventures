@@ -1,5 +1,7 @@
 export type MathQuestion = { id: string; label: string; answer: string };
 export type EnglishQuestion = { id: string; icon: string; label: string; options: string[]; answer: string };
+export type MissionLane = "order" | "kindness" | "independence";
+export type MissionMechanic = "notice" | "choose" | "prepare" | "care" | "timer" | "share";
 export type DailyContent = {
   math: MathQuestion[];
   english: EnglishQuestion[];
@@ -7,7 +9,8 @@ export type DailyContent = {
   independence: string[];
   order: string[];
   secret: string;
-  missionCopy: Record<"order" | "kindness" | "independence", { title: string; note: string }>;
+  missionCopy: Record<MissionLane, { title: string; note: string }>;
+  missionMechanics: Record<MissionLane, MissionMechanic>;
 };
 
 function hash(value: string) {
@@ -53,9 +56,18 @@ function rotateDaily<T>(items: readonly T[], day: string, count: number, lane: s
   return chosen;
 }
 
-function missionCopyForDay(items: readonly (readonly [string, string])[], day: string, lane: string) {
-  const [title, note] = rotateDaily(items, day, 1, lane)[0];
-  return { title, note };
+function dailyWindow<T>(items: readonly T[], day: string, count: number, lane: string) {
+  const start = (dayNumber(day) + hash(lane)) % items.length;
+  return Array.from({ length: count }, (_, index) => items[(start + index) % items.length]);
+}
+
+function dayNumber(day: string) {
+  return Math.floor(new Date(`${day}T12:00:00Z`).getTime() / 86_400_000);
+}
+
+function missionCopyForDay(items: readonly (readonly [MissionMechanic, string, string])[], day: string, lane: string) {
+  const [mechanic, title, note] = items[(dayNumber(day) + hash(lane)) % items.length];
+  return { mechanic, title, note };
 }
 
 const words = [
@@ -91,6 +103,12 @@ const kindness = [
   "Спросить у близкого, как прошёл его день", "Поделиться без ожидания ответа или награды",
   "Замечать, кому хочется улыбнуться", "Сделать паузу, чтобы побыть рядом с близким",
   "Сохранить для кого-то удобное место", "Помочь вернуть общую вещь на место",
+  "Выбрать одного человека и подарить ему пять минут внимания",
+  "Предложить близкому выбрать музыку или игру первым",
+  "Подготовить для семьи салфетки, чашки или другую нужную мелочь",
+  "Заметить чужое старание и сказать об этом вслух",
+  "Позвать близкого сделать короткое приятное дело вместе",
+  "Поделиться хорошим воспоминанием, которое может поднять настроение",
 ];
 const independence = [
   "Сама начать читать в выбранное время", "Сама подготовить одежду и вещи на завтра",
@@ -107,6 +125,10 @@ const independence = [
   "Сама выбрать одежду по погоде", "Сама собрать рюкзак по списку",
   "Сама привести в порядок место после перекуса", "Сама решить, с чего начать своё дело",
   "Сама подготовить нужные мелочи на завтра", "Сама сказать взрослому, что уже готова",
+  "Сама выбрать одно дело и поставить таймер на пять минут",
+  "Сама проверить погоду перед тем, как собираться",
+  "Сама записать одну важную мысль, чтобы не забыть",
+  "Сама выбрать, что можно спокойно закончить прямо сейчас",
 ];
 const order = [
   "Вернуть на место минимум 5 вещей", "Освободить и протереть свой стол", "Подготовить одежду на завтра",
@@ -122,6 +144,10 @@ const order = [
   "Собрать посуду после перекуса", "Проверить, удобно ли открывается твой ящик",
   "Разложить школьные мелочи по местам", "Освободить место для завтрашних вещей",
   "Сделать кровать уютнее одной маленькой деталью", "Убрать один предмет из общей комнаты",
+  "Поставить таймер на пять минут и вернуть на место столько вещей, сколько захочется",
+  "Выбрать один цвет и найти вещи этого цвета не на своих местах",
+  "Подготовить пустое место для одной вещи, которая понадобится завтра",
+  "Выбрать одну полку для короткой экспедиции порядка",
 ];
 const secrets = [
   "Сделай сегодня одно доброе дело так, чтобы никто не видел.",
@@ -159,23 +185,36 @@ const secrets = [
 
 const missionCopy = {
   order: [
-    ["Остров порядка", "Выбери несколько вещей, которым пора вернуться домой"],
-    ["Тихая мастерская", "Сделай вокруг себя немного свободнее и удобнее"],
-    ["Место для завтрашнего дня", "Подготовь один маленький уголок заранее"],
-    ["Комната дышит", "Пять минут заботы о своём пространстве"],
+    ["notice", "Следопыт порядка", "Заметь несколько вещей, которым пора вернуться домой"],
+    ["choose", "Остров порядка", "Выбери маленький уголок, который хочется освободить"],
+    ["prepare", "Место для завтрашнего дня", "Подготовь одну нужную вещь заранее"],
+    ["care", "Комната дышит", "Добавь немного заботы своему пространству"],
+    ["timer", "Пятиминутная экспедиция", "Посмотри, что успеет вернуться на место за пять минут"],
+    ["share", "Общий уют", "Сделай немного удобнее место, которым пользуются все"],
   ],
   kindness: [
-    ["Тёплый сигнал", "Выбери маленький способ поддержать кого-то рядом"],
-    ["Лучик для другого", "Одно доброе действие без ожидания награды"],
-    ["Секрет заботы", "Заметь, кому сегодня может стать чуть легче"],
-    ["Добрая находка", "Поделись вниманием, временем или помощью"],
+    ["notice", "Секрет заботы", "Заметь, кому сегодня может стать чуть легче"],
+    ["choose", "Тёплый сигнал", "Выбери приятный способ поддержать кого-то рядом"],
+    ["prepare", "Добро заранее", "Подготовь маленькую помощь до того, как о ней попросят"],
+    ["care", "Лучик для другого", "Подари немного внимания без ожидания награды"],
+    ["timer", "Пять тёплых минут", "Найди короткое доброе дело, которое хочется сделать сейчас"],
+    ["share", "Добрая находка", "Поделись временем, хорошей мыслью или помощью"],
   ],
   independence: [
-    ["Мой самостоятельный шаг", "Вспомни дело, которое получилось начать самой"],
-    ["Суперсила выбора", "Выбери одно маленькое дело и проведи его сама"],
-    ["Я уже готова", "Заметь, что сегодня смогла сделать без напоминания"],
-    ["Свой маршрут", "Один спокойный шаг, который ты выбираешь сама"],
+    ["notice", "Я это заметила", "Вспомни дело, которое уже получилось сделать самой"],
+    ["choose", "Суперсила выбора", "Выбери один небольшой самостоятельный шаг"],
+    ["prepare", "Я готова", "Подготовь одну нужную мелочь без спешки"],
+    ["care", "Забота о себе", "Выбери полезное действие, которое поможет тебе самой"],
+    ["timer", "Пять минут сама", "Попробуй начать небольшое дело на коротком таймере"],
+    ["share", "Свой маршрут", "Расскажи взрослому о шаге, который выбрала сама"],
   ],
+} as const;
+
+export const HOME_MISSION_POOL_SIZES = {
+  order: order.length,
+  kindness: kindness.length,
+  independence: independence.length,
+  secret: secrets.length,
 } as const;
 
 export function dailyContent(day: string): DailyContent {
@@ -201,14 +240,26 @@ export function dailyContent(day: string): DailyContent {
     id: `${day}-word-${index}`, icon, label, answer, options: options(answer, [...wrong], random),
   }));
   english.push({ id: `${day}-phrase`, icon: phrase[0], label: "Выбери перевод", answer: phrase[1], options: options(phrase[1], [...phrase[2]], random) });
+  const selectedCopy = {
+    order: missionCopyForDay(missionCopy.order, day, "order-copy"),
+    kindness: missionCopyForDay(missionCopy.kindness, day, "kindness-copy"),
+    independence: missionCopyForDay(missionCopy.independence, day, "independence-copy"),
+  };
   return {
     math: pick(math, random, math.length), english,
-    kindness: rotateDaily(kindness, day, 3, "kindness"), independence: rotateDaily(independence, day, 4, "independence"), order: rotateDaily(order, day, 4, "order"),
+    kindness: dailyWindow(kindness, day, 3, "kindness"),
+    independence: dailyWindow(independence, day, 4, "independence"),
+    order: dailyWindow(order, day, 4, "order"),
     secret: rotateDaily(secrets, day, 1, "secret")[0],
     missionCopy: {
-      order: missionCopyForDay(missionCopy.order, day, "order-copy"),
-      kindness: missionCopyForDay(missionCopy.kindness, day, "kindness-copy"),
-      independence: missionCopyForDay(missionCopy.independence, day, "independence-copy"),
+      order: { title: selectedCopy.order.title, note: selectedCopy.order.note },
+      kindness: { title: selectedCopy.kindness.title, note: selectedCopy.kindness.note },
+      independence: { title: selectedCopy.independence.title, note: selectedCopy.independence.note },
+    },
+    missionMechanics: {
+      order: selectedCopy.order.mechanic,
+      kindness: selectedCopy.kindness.mechanic,
+      independence: selectedCopy.independence.mechanic,
     },
   };
 }
