@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { dailyContent } from "../app/daily-content.ts";
+import { dailyContent, HOME_MISSION_POOL_SIZES } from "../app/daily-content.ts";
 import { BOOKS, cleanBookReflections, cleanDailyReadingSession, cleanRanges, continuousPage, isBookFinished, isReadingAnswerCorrect, mergeRanges, nextBook, readingQuestionsForRange, readingStarCount } from "../app/books.ts";
 import { emptyLearningHistory, recordLearningAttempt } from "../app/learning-history.ts";
 
@@ -22,6 +22,7 @@ test("secret mission rotates without repeating for thirty consecutive days", () 
 
 test("daily home missions stay varied and remain small choices", () => {
   let previous = null;
+  const signatures = { kindness: new Set(), independence: new Set(), order: new Set() };
   for (let index = 1; index <= 30; index += 1) {
     const content = dailyContent(`2026-11-${String(index).padStart(2, "0")}`);
     assert.equal(content.kindness.length, 3);
@@ -30,13 +31,46 @@ test("daily home missions stay varied and remain small choices", () => {
     assert.equal(new Set(content.kindness).size, 3);
     assert.equal(new Set(content.independence).size, 4);
     assert.equal(new Set(content.order).size, 4);
+    signatures.kindness.add(content.kindness.join("|"));
+    signatures.independence.add(content.independence.join("|"));
+    signatures.order.add(content.order.join("|"));
     if (previous) {
       assert.notDeepEqual(content.kindness, previous.kindness, `kindness changes on day ${index}`);
       assert.notDeepEqual(content.independence, previous.independence, `independence changes on day ${index}`);
       assert.notDeepEqual(content.order, previous.order, `order changes on day ${index}`);
+      assert.notEqual(content.missionMechanics.kindness, previous.missionMechanics.kindness, `kindness mechanic changes on day ${index}`);
+      assert.notEqual(content.missionMechanics.independence, previous.missionMechanics.independence, `independence mechanic changes on day ${index}`);
+      assert.notEqual(content.missionMechanics.order, previous.missionMechanics.order, `order mechanic changes on day ${index}`);
+      assert.notDeepEqual(content.missionCopy, previous.missionCopy, `mission story changes on day ${index}`);
     }
     previous = content;
   }
+  assert.deepEqual(Object.fromEntries(Object.entries(signatures).map(([lane, values]) => [lane, values.size])), {
+    kindness: 30, independence: 30, order: 30,
+  });
+});
+
+test("every home mission pool meets the agreed scenario range", () => {
+  for (const [lane, size] of Object.entries(HOME_MISSION_POOL_SIZES)) {
+    assert.ok(size >= 30, `${lane} has at least thirty scenarios`);
+    assert.ok(size <= 50, `${lane} stays within the fifty-scenario ceiling`);
+  }
+});
+
+test("home mission choices keep their string format for saved progress", () => {
+  const content = dailyContent("2026-12-03");
+  const savedProgress = {
+    done: ["order", "kindness", "independence"],
+    kindnessChoice: content.kindness[1],
+    independenceChoice: content.independence[2],
+    orderChecks: ["daily-0", "daily-2", "daily-3"],
+  };
+  assert.equal(typeof savedProgress.kindnessChoice, "string");
+  assert.equal(typeof savedProgress.independenceChoice, "string");
+  assert.equal(dailyContent("2026-12-03").kindness.includes(savedProgress.kindnessChoice), true);
+  assert.equal(dailyContent("2026-12-03").independence.includes(savedProgress.independenceChoice), true);
+  assert.deepEqual(savedProgress.done, ["order", "kindness", "independence"]);
+  assert.deepEqual(savedProgress.orderChecks, ["daily-0", "daily-2", "daily-3"]);
 });
 
 test("reading ranges merge and books open sequentially", () => {
