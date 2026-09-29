@@ -10,6 +10,7 @@ import { isAnswerCorrect, type LearningQuestion } from "./learning-system";
 import { weeklyAdventure, weeklyFragmentCount } from "./adventure-story";
 import { safeAnalyticsExport, type ParentAnalytics } from "./parent-analytics";
 import { createViewNavigation } from "./view-navigation";
+import { safePushState, safeReplaceState } from "./browser-history";
 
 type MissionId = "morning" | "reading" | "math" | "english" | "order" | "kindness" | "independence";
 type View = "home" | "wallet" | "journal" | "parent" | MissionId;
@@ -106,7 +107,15 @@ function viewFromHash(hash: string): View {
 
 function ViewLink({ view, onOpen, children, ...props }: Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "onClick"> & { view: View; onOpen: (view: View) => void; children: React.ReactNode }) {
   const href = view === "home" ? "#today-anchor" : `#${viewHashes[view]}`;
-  return <a {...props} href={href} onClick={(event) => { event.preventDefault(); onOpen(view); }}>{children}</a>;
+  return <a {...props} href={href} onClick={(event) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    try {
+      onOpen(view);
+      event.preventDefault();
+    } catch {
+      // Keep the native hash navigation as a last-resort fallback.
+    }
+  }}>{children}</a>;
 }
 
 export default function Adventure({ canViewAdultAnalytics = false }: { canViewAdultAnalytics?: boolean }) {
@@ -173,7 +182,6 @@ export default function Adventure({ canViewAdultAnalytics = false }: { canViewAd
     };
     const rememberScroll = () => {
       navigation.current.remember(window.scrollY);
-      window.history.replaceState({ ...window.history.state, adventureScroll: window.scrollY }, "");
     };
     restoreView();
     window.addEventListener("scroll", rememberScroll, { passive: true });
@@ -239,10 +247,10 @@ export default function Adventure({ canViewAdultAnalytics = false }: { canViewAd
   function goTo(next: View) {
     if (next === view) return;
     navigation.current.remember(window.scrollY);
-    window.history.replaceState({ ...window.history.state, adventureScroll: window.scrollY }, "");
+    safeReplaceState(window.history, { ...window.history.state, adventureScroll: window.scrollY });
     restoreScroll.current = navigation.current.open(next);
     const hash = next === "home" ? "" : `#${viewHashes[next]}`;
-    window.history.pushState({ adventureScroll: restoreScroll.current, adventureDepth: (window.history.state?.adventureDepth ?? 0) + 1 }, "", `${window.location.pathname}${window.location.search}${hash}`);
+    safePushState(window.history, { adventureScroll: restoreScroll.current, adventureDepth: (window.history.state?.adventureDepth ?? 0) + 1 }, `${window.location.pathname}${window.location.search}${hash}`);
     flushSync(() => setView(next));
   }
   function goBack() {

@@ -84,7 +84,8 @@ test("home navigation remains usable before hydration and keeps enhanced in-app 
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(adventure, /function ViewLink/);
   assert.match(adventure, /href=\{href\}/);
-  assert.match(adventure, /event\.preventDefault\(\); onOpen\(view\)/);
+  assert.match(adventure, /onOpen\(view\);[\s\S]*event\.preventDefault\(\)/);
+  assert.match(adventure, /Keep the native hash navigation as a last-resort fallback/);
   assert.match(adventure, /<ViewLink view="wallet" className="money-stat"/);
   assert.match(adventure, /<ViewLink view=\{mission\.id\} className="route-main"/);
   assert.match(adventure, /<a href=\{section === "today" \? "#today-anchor" : `#\$\{section\}`\}/);
@@ -115,7 +116,8 @@ test("reading uses one compact end-page field and views survive a refresh", asyn
   assert.doesNotMatch(adventure, /Книга \{BOOKS\.findIndex/);
   assert.doesNotMatch(adventure, /Начала со страницы/);
   assert.match(adventure, /viewFromHash\(window\.location\.hash\)/);
-  assert.match(adventure, /window\.history\.replaceState/);
+  assert.match(adventure, /safeReplaceState\(window\.history/);
+  assert.match(adventure, /safePushState\(window\.history/);
 });
 
 test("mom owns the review and signature flow while dad keeps contacts and book bonus", async () => {

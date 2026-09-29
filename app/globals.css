@@ -15,6 +15,7 @@
 html { color-scheme: light; background: var(--canvas); scroll-behavior: auto; scroll-padding-block: 100px; }
 body { margin: 0; color: var(--ink); background: radial-gradient(circle at 50% -20%, #fff 0, #f5f5f7 45%); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
 button, input, textarea { font: inherit; }
+button, a { touch-action: manipulation; }
 button { color: inherit; -webkit-tap-highlight-color: transparent; }
 button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid rgba(0, 113, 227, .25); outline-offset: 3px; }
 

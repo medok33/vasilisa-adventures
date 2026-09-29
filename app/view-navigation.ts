@@ -12,7 +12,7 @@ export function createViewNavigation<View extends string>(home: View) {
     },
     restore(next: View, top?: number) {
       current = next;
-      if (typeof top === "number" && Number.isFinite(top)) positions.set(next, Math.max(0, top));
+      if (!positions.has(next) && typeof top === "number" && Number.isFinite(top)) positions.set(next, Math.max(0, top));
       return positions.get(next) ?? 0;
     },
     position(next: View) { return positions.get(next) ?? 0; },

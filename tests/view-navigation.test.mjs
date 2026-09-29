@@ -31,3 +31,10 @@ test("browser history offset survives refresh and unknown offsets are safe", () 
   assert.equal(nav.position("home"), 0);
   assert.equal(nav.restore("reading"), 650);
 });
+
+test("live scroll position wins over an older browser-history snapshot", () => {
+  const nav = createViewNavigation("home");
+  nav.open("parent");
+  nav.remember(980);
+  assert.equal(nav.restore("parent", 120), 980);
+});
