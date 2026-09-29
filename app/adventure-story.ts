@@ -84,8 +84,6 @@ const WORLDS: readonly WeeklyWorld[] = [
   },
 ] as const;
 
-const DAY_MS = 86_400_000;
-
 function utcDay(day: string) {
   const [year, month, date] = day.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, date));
@@ -98,12 +96,12 @@ export function mondayOf(day: string) {
   return date.toISOString().slice(0, 10);
 }
 
-export function weeklyAdventure(day: string, completedMissions: number) {
-  const date = utcDay(day);
+export function weeklyAdventure(day: string, completedMissions: number, previousAdventureDays = 0) {
   const monday = utcDay(mondayOf(day));
-  const weekNumber = Math.floor(monday.getTime() / DAY_MS / 7);
-  const world = WORLDS[((weekNumber % WORLDS.length) + WORLDS.length) % WORLDS.length];
-  const chapterIndex = Math.round((date.getTime() - monday.getTime()) / DAY_MS);
+  const adventureDay = Math.max(0, Math.round(previousAdventureDays || 0));
+  const worldIndex = Math.floor(adventureDay / 7) % WORLDS.length;
+  const world = WORLDS[worldIndex];
+  const chapterIndex = adventureDay % 7;
   const completed = Math.max(0, Math.min(7, Math.round(completedMissions || 0)));
   return {
     world,

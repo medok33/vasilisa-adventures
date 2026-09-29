@@ -154,7 +154,8 @@ export default function Adventure() {
   const rewardBudget = earnedStars * 15;
   const savingsTransfer = Math.min(Math.floor(rewardBudget / 10) * 10, progress.savingsTransfer);
   const tomorrowLimit = 100 + rewardBudget - savingsTransfer;
-  const story = useMemo(() => weeklyAdventure(day, progress.done.length), [day, progress.done.length]);
+  const previousAdventureDays = useMemo(() => history.filter((item) => item.day < day).length, [day, history]);
+  const story = useMemo(() => weeklyAdventure(day, progress.done.length, previousAdventureDays), [day, previousAdventureDays, progress.done.length]);
   const weeklyFragments = useMemo(() => weeklyFragmentCount(day, history, earnedStars), [day, earnedStars, history]);
 
   useEffect(() => {

@@ -45,7 +45,8 @@ test("home screen presents a persistent seven-step weekly adventure without extr
   const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
   const story = await readFile(new URL("../app/adventure-story.ts", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(adventure, /weeklyAdventure\(day, progress\.done\.length\)/);
+  assert.match(adventure, /weeklyAdventure\(day, progress\.done\.length, previousAdventureDays\)/);
+  assert.match(adventure, /history\.filter\(\(item\) => item\.day < day\)\.length/);
   assert.match(adventure, /Карта главы/);
   assert.match(adventure, /Каждая готовая миссия двигает героиню по карте/);
   assert.match(adventure, /Пропущенный день не отнимает уже собранное/);

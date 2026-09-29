@@ -5,21 +5,28 @@ import { BOOKS, cleanBookReflections, cleanDailyReadingSession, cleanRanges, con
 import { emptyLearningHistory, recordLearningAttempt } from "../app/learning-history.ts";
 import { WEEKLY_WORLD_COUNT, mondayOf, weeklyAdventure, weeklyFragmentCount } from "../app/adventure-story.ts";
 
-test("weekly adventure keeps one world for seven chapters and rotates next Monday", () => {
+test("a cleared history starts from chapter one regardless of weekday", () => {
+  const story = weeklyAdventure("2026-09-29", 0, 0);
+  assert.equal(story.chapterIndex, 0);
+  assert.equal(story.chapter.title, "Первый луч");
+  assert.equal(story.world.name, "Долина солнечных троп");
+});
+
+test("weekly adventure advances by saved adventure days and rotates after seven", () => {
   const days = ["2026-09-07", "2026-09-08", "2026-09-09", "2026-09-10", "2026-09-11", "2026-09-12", "2026-09-13"];
-  const stories = days.map((day, completed) => weeklyAdventure(day, completed));
+  const stories = days.map((day, completed) => weeklyAdventure(day, completed, completed));
   assert.equal(new Set(stories.map((story) => story.world.name)).size, 1);
   assert.deepEqual(stories.map((story) => story.chapterIndex), [0, 1, 2, 3, 4, 5, 6]);
   assert.equal(stories[0].world.chapters.length, 7);
-  assert.notEqual(weeklyAdventure("2026-09-14", 0).world.name, stories[0].world.name);
+  assert.notEqual(weeklyAdventure("2026-09-14", 0, 7).world.name, stories[0].world.name);
   assert.ok(WEEKLY_WORLD_COUNT >= 5);
 });
 
 test("chapter position and finds are restored from saved mission progress", () => {
-  const start = weeklyAdventure("2026-09-08", 0);
-  const middle = weeklyAdventure("2026-09-08", 3);
-  const restored = weeklyAdventure("2026-09-08", 3);
-  const finish = weeklyAdventure("2026-09-08", 7);
+  const start = weeklyAdventure("2026-09-08", 0, 1);
+  const middle = weeklyAdventure("2026-09-08", 3, 1);
+  const restored = weeklyAdventure("2026-09-08", 3, 1);
+  const finish = weeklyAdventure("2026-09-08", 7, 1);
   assert.equal(start.nextMissionIndex, 0);
   assert.deepEqual(middle, restored);
   assert.equal(middle.nextMissionIndex, 3);
