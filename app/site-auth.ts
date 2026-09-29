@@ -1,5 +1,7 @@
 export const SITE_SESSION_COOKIE = "vasilisa_session";
 export const SITE_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+export type SiteSessionRole = "adult" | "child";
+export type SiteSession = { expiresAt: number; role: SiteSessionRole };
 
 function bytesToBase64Url(bytes: Uint8Array) {
   let binary = "";
@@ -12,21 +14,28 @@ async function signature(payload: string, secret: string) {
   return bytesToBase64Url(new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload))));
 }
 
-export async function createSiteSession(secret: string, now = Date.now()) {
+export async function createSiteSession(secret: string, role: SiteSessionRole = "adult", now = Date.now()) {
   const expiresAt = Math.floor(now / 1000) + SITE_SESSION_TTL_SECONDS;
-  const payload = String(expiresAt);
+  const payload = `${expiresAt}:${role}`;
   return `${payload}.${await signature(payload, secret)}`;
 }
 
-export async function verifySiteSession(token: string | undefined, secret: string, now = Date.now()) {
-  if (!token) return false;
+export async function readSiteSession(token: string | undefined, secret: string, now = Date.now()): Promise<SiteSession | null> {
+  if (!token) return null;
   const [payload, suppliedSignature, extra] = token.split(".");
-  if (!payload || !suppliedSignature || extra || !/^\d+$/.test(payload) || Number(payload) <= Math.floor(now / 1000)) return false;
+  const [expiresAtText, role, payloadExtra] = payload?.split(":") ?? [];
+  if (!payload || !suppliedSignature || extra || payloadExtra || !/^\d+$/.test(expiresAtText) || (role !== "adult" && role !== "child")) return null;
+  const expiresAt = Number(expiresAtText);
+  if (expiresAt <= Math.floor(now / 1000)) return null;
   const expected = await signature(payload, secret);
-  if (expected.length !== suppliedSignature.length) return false;
+  if (expected.length !== suppliedSignature.length) return null;
   let difference = 0;
   for (let index = 0; index < expected.length; index += 1) difference |= expected.charCodeAt(index) ^ suppliedSignature.charCodeAt(index);
-  return difference === 0;
+  return difference === 0 ? { expiresAt, role } : null;
+}
+
+export async function verifySiteSession(token: string | undefined, secret: string, now = Date.now()) {
+  return Boolean(await readSiteSession(token, secret, now));
 }
 
 export async function secureTextEqual(left: string, right: string) {
@@ -41,9 +50,9 @@ export async function secureUsernameEqual(left: string, right: string) {
   return secureTextEqual(left.toLowerCase(), right.toLowerCase());
 }
 
-export type SiteCredential = { username: string; password: string };
+export type SiteCredential = { username: string; password: string; role?: SiteSessionRole };
 
-export async function matchesSiteCredentials(username: string, password: string, credentials: SiteCredential[]) {
+export async function matchingSiteCredential(username: string, password: string, credentials: SiteCredential[]) {
   const results = await Promise.all(credentials.map(async (credential) => {
     const [usernameMatches, passwordMatches] = await Promise.all([
       secureUsernameEqual(username, credential.username),
@@ -51,7 +60,20 @@ export async function matchesSiteCredentials(username: string, password: string,
     ]);
     return usernameMatches && passwordMatches;
   }));
-  return results.some(Boolean);
+  const index = results.findIndex(Boolean);
+  return index === -1 ? null : credentials[index];
+}
+
+export async function matchesSiteCredentials(username: string, password: string, credentials: SiteCredential[]) {
+  return Boolean(await matchingSiteCredential(username, password, credentials));
+}
+
+export function cookieValue(cookieHeader: string | null, name: string) {
+  const prefix = `${name}=`;
+  const item = cookieHeader?.split(";").map((value) => value.trim()).find((value) => value.startsWith(prefix));
+  if (!item) return undefined;
+  try { return decodeURIComponent(item.slice(prefix.length)); }
+  catch { return undefined; }
 }
 
 export function passwordWithUppercaseFirstCharacter(value: string) {

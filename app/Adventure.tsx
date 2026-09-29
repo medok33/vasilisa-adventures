@@ -104,7 +104,12 @@ function viewFromHash(hash: string): View {
   return (Object.entries(viewHashes).find(([, route]) => route === value)?.[0] as View | undefined) ?? "home";
 }
 
-export default function Adventure() {
+function ViewLink({ view, onOpen, children, ...props }: Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "onClick"> & { view: View; onOpen: (view: View) => void; children: React.ReactNode }) {
+  const href = view === "home" ? "#today-anchor" : `#${viewHashes[view]}`;
+  return <a {...props} href={href} onClick={(event) => { event.preventDefault(); onOpen(view); }}>{children}</a>;
+}
+
+export default function Adventure({ canViewAdultAnalytics = false }: { canViewAdultAnalytics?: boolean }) {
   const [day] = useState(currentDay);
   const [view, setView] = useState<View>("home");
   const navigation = useRef(createViewNavigation<View>("home"));
@@ -501,24 +506,24 @@ export default function Adventure() {
 
   if (view === "wallet") return <><WalletScreen progress={progress} patch={patch} todayLimit={todayLimit} tomorrowLimit={tomorrowLimit} rewardBudget={rewardBudget} closed={closed} onUnlock={reopenDay} onBack={goBack} />{bottomNav}</>;
   if (view === "journal") return <><JournalScreen day={day} progress={progress} patch={patch} history={history} historyLoading={historyLoading} dadContacts={dadContacts} closed={closed} onUnlock={reopenDay} onNotifyDad={notifyDad} onBack={goBack} />{bottomNav}</>;
-  if (view === "parent") return <><ParentScreen day={day} progress={progress} patch={patch} closed={closed} onCloseDay={closeDay} onReopenDay={reopenDay} stars={earnedStars} tomorrowLimit={tomorrowLimit} rewardBudget={rewardBudget} onBack={goBack} onOpenMission={(id) => goTo(id)} onOpenWallet={() => goTo("wallet")} />{bottomNav}</>;
+  if (view === "parent") return <><ParentScreen day={day} progress={progress} patch={patch} closed={closed} onCloseDay={closeDay} onReopenDay={reopenDay} stars={earnedStars} tomorrowLimit={tomorrowLimit} rewardBudget={rewardBudget} canViewAdultAnalytics={canViewAdultAnalytics} onBack={goBack} onOpenMission={(id) => goTo(id)} onOpenWallet={() => goTo("wallet")} />{bottomNav}</>;
 
   return (
     <main className="app-shell">
       <header className="app-header">
         <button className="profile-dot" type="button" aria-label="Профиль Василисы">В</button>
         <div><strong>Приключения Василисы</strong><span>{dayLabel(day)}</span></div>
-        <nav className="desktop-nav" aria-label="Разделы приложения"><button className={activeSection==="today"?"active":""} onClick={() => openSection("today")}>Сегодня</button><button className={activeSection==="wallet"?"active":""} onClick={() => openSection("wallet")}>Копилка</button><button className={activeSection==="journal"?"active":""} onClick={() => openSection("journal")}>Мой день</button></nav>
+        <nav className="desktop-nav" aria-label="Разделы приложения"><ViewLink view="home" className={activeSection==="today"?"active":""} onOpen={goTo}>Сегодня</ViewLink><ViewLink view="wallet" className={activeSection==="wallet"?"active":""} onOpen={goTo}>Копилка</ViewLink><ViewLink view="journal" className={activeSection==="journal"?"active":""} onOpen={goTo}>Мой день</ViewLink></nav>
         <div className={`sync-state ${saveState}`}>{saveState === "saved" ? "Сохранено" : saveState === "saving" ? "Сохраняю" : "Без связи"}</div>
       </header>
 
       <section className={`game-hero mood-${earnedStars < 3 ? "start" : earnedStars < 6 ? "curious" : earnedStars < 9 ? "brave" : "shine"}`} id="today-anchor">
-        <div className="hero-content"><p className="hero-label">Глава {story.chapterIndex + 1} из 7 · {story.world.name}</p><h1>{story.chapter.title}</h1><p>{story.chapter.goal}. Семь коротких миссий можно проходить в любом порядке.</p><span className="hero-mood">{story.finalScene ? "Глава завершена — все находки собраны!" : earnedStars < 3 ? "Василиса готова начинать" : earnedStars < 6 ? "Уже вошла во вкус!" : earnedStars < 9 ? "Вот это уверенный темп!" : "Сегодня всё сияет!"}</span><div className="hero-actions"><button onClick={() => goTo(missions.find((m) => !progress.done.includes(m.id))?.id ?? "journal")}>{story.finalScene ? "Записать итог дня" : "Следующая миссия"}<span aria-hidden="true">→</span></button><div className="hero-progress"><b>{progress.done.length}/7</b><span>миссий готово</span></div></div></div>
+        <div className="hero-content"><p className="hero-label">Глава {story.chapterIndex + 1} из 7 · {story.world.name}</p><h1>{story.chapter.title}</h1><p>{story.chapter.goal}. Семь коротких миссий можно проходить в любом порядке.</p><span className="hero-mood">{story.finalScene ? "Глава завершена — все находки собраны!" : earnedStars < 3 ? "Василиса готова начинать" : earnedStars < 6 ? "Уже вошла во вкус!" : earnedStars < 9 ? "Вот это уверенный темп!" : "Сегодня всё сияет!"}</span><div className="hero-actions"><ViewLink view={missions.find((m) => !progress.done.includes(m.id))?.id ?? "journal"} onOpen={goTo}>{story.finalScene ? "Записать итог дня" : "Следующая миссия"}<span aria-hidden="true">→</span></ViewLink><div className="hero-progress"><b>{progress.done.length}/7</b><span>миссий готово</span></div></div></div>
         <picture className="hero-art"><span className="hero-sparkles" aria-hidden="true"><i/><i/><i/></span><img src="/vasilisa-hero-cartoon-v4.webp" alt="Мультяшная Василиса с двумя косами держит светящуюся звезду" /></picture>
       </section>
 
       <section className="dashboard-strip" id="wallet-anchor">
-        <button className="money-stat" onClick={() => goTo("wallet")}><span>Можно сегодня</span><strong>{todayLimit} ₽</strong><small>В копилке {progress.balance.toLocaleString("ru-RU")} ₽ <b>→</b></small></button>
+        <ViewLink view="wallet" className="money-stat" onOpen={goTo}><span>Можно сегодня</span><strong>{todayLimit} ₽</strong><small>В копилке {progress.balance.toLocaleString("ru-RU")} ₽ <b>→</b></small></ViewLink>
         <div className="star-summary"><span>Звёзды сегодня</span><strong>{earnedStars}<small> из 10</small></strong><div className="mini-stars">{Array.from({length:10},(_,i)=><i className={i<earnedStars?"filled":""} key={i} />)}</div></div>
         <div className="tomorrow-stat"><span>Откроется завтра</span><strong>{tomorrowLimit} ₽</strong><small>После проверки мамой</small></div>
       </section>
@@ -527,18 +532,18 @@ export default function Adventure() {
 
       <section className={`chapter-map ${story.finalScene ? "chapter-complete" : ""}`} aria-label={`Карта главы: ${story.completed} из 7 миссий`}>
         <div className="chapter-map-copy"><span>Глава {story.chapterIndex + 1} · {story.chapter.title}</span><strong>{story.finalScene ? "Маршрут пройден!" : `Следующая находка ждёт на шаге ${story.completed + 1}`}</strong><p>{story.finalScene ? "Василиса добралась до финальной сцены дня. Можно сохранить впечатления в дневнике." : "Каждая готовая миссия двигает героиню по карте и открывает маленькую находку."}</p></div>
-        <div className="chapter-path">{todayMissions.map((mission, index) => { const done = index < story.completed; const current = !story.finalScene && index === story.nextMissionIndex; const nextMission = missions.find((item) => !progress.done.includes(item.id))?.id ?? mission.id; return <button type="button" className={`${done ? "done" : ""} ${current ? "current" : ""}`} onClick={() => goTo(done ? mission.id : nextMission)} aria-label={`Шаг ${index + 1}: ${done ? `найдено — ${story.world.finds[index]}` : current ? "следующий шаг" : "впереди"}`} key={mission.id}><i>{done ? "✓" : index + 1}</i><small>{done ? story.world.finds[index] : `шаг ${index + 1}`}</small>{current && <b aria-hidden="true">В</b>}</button>; })}</div>
+        <div className="chapter-path">{todayMissions.map((mission, index) => { const done = index < story.completed; const current = !story.finalScene && index === story.nextMissionIndex; const nextMission = missions.find((item) => !progress.done.includes(item.id))?.id ?? mission.id; return <ViewLink view={done ? mission.id : nextMission} className={`${done ? "done" : ""} ${current ? "current" : ""}`} onOpen={goTo} aria-label={`Шаг ${index + 1}: ${done ? `найдено — ${story.world.finds[index]}` : current ? "следующий шаг" : "впереди"}`} key={mission.id}><i>{done ? "✓" : index + 1}</i><small>{done ? story.world.finds[index] : `шаг ${index + 1}`}</small>{current && <b aria-hidden="true">В</b>}</ViewLink>; })}</div>
         <div className="chapter-finds"><span>Находки главы</span><strong>{story.foundItems.length ? story.foundItems.join(" · ") : "Первая появится после любой готовой миссии"}</strong></div>
       </section>
 
       <section className="route-section">
         <div className="route-heading"><div><p>Маршрут на сегодня</p><h2>Миссии дня</h2></div><span>Можно идти в любом порядке · каждая попытка помогает двигаться дальше</span></div>
-        <div className="route-grid">{todayMissions.map((mission) => { const done = progress.done.includes(mission.id); const note = mission.id === "reading" ? `${readingBook.title} · чтение в своём темпе` : mission.note; return <article className={`route-card ${mission.accent} ${done ? "done" : ""}`} key={mission.id}><button className="route-main" onClick={() => goTo(mission.id)}><span className="mission-number">{mission.index}</span><span className="mission-symbol"><MissionIcon id={mission.id}/></span><span className="route-copy"><small>{mission.kicker}</small><strong>{mission.title}</strong><p>{note}</p></span><span className="reward-pill">{done ? "Готово" : mission.reward}</span></button></article>; })}</div>
+        <div className="route-grid">{todayMissions.map((mission) => { const done = progress.done.includes(mission.id); const note = mission.id === "reading" ? `${readingBook.title} · чтение в своём темпе` : mission.note; return <article className={`route-card ${mission.accent} ${done ? "done" : ""}`} key={mission.id}><ViewLink view={mission.id} className="route-main" onOpen={goTo}><span className="mission-number">{mission.index}</span><span className="mission-symbol"><MissionIcon id={mission.id}/></span><span className="route-copy"><small>{mission.kicker}</small><strong>{mission.title}</strong><p>{note}</p></span><span className="reward-pill">{done ? "Готово" : mission.reward}</span></ViewLink></article>; })}</div>
       </section>
 
       <section className="bottom-cards">
-        <button id="journal-anchor" className="journal-card" onClick={() => goTo("journal")}><span>Личное пространство</span><strong>Мой день</strong><p>Что получилось, что было непросто и что рассказать папе.</p><i>Открыть дневник <b>→</b></i></button>
-        <button id="parent-anchor" className={`parent-card ${closed ? "closed" : ""}`} onClick={() => goTo("parent")}><span>Для мамы</span><strong>{closed ? "День подтверждён" : "Мамина проверка"}</strong><p>{closed ? "Все результаты сохранены. День можно открыть для исправления." : "Мама подтверждает бытовые миссии и подписывает отчёт дня."}</p><i>{closed ? `${earnedStars}/10 ⭐ · ${tomorrowLimit} ₽ завтра` : "Перейти к маминой проверке →"}</i></button>
+        <ViewLink view="journal" id="journal-anchor" className="journal-card" onOpen={goTo}><span>Личное пространство</span><strong>Мой день</strong><p>Что получилось, что было непросто и что рассказать папе.</p><i>Открыть дневник <b>→</b></i></ViewLink>
+        <ViewLink view="parent" id="parent-anchor" className={`parent-card ${closed ? "closed" : ""}`} onOpen={goTo}><span>Для мамы</span><strong>{closed ? "День подтверждён" : "Мамина проверка"}</strong><p>{closed ? "Все результаты сохранены. День можно открыть для исправления." : "Мама подтверждает бытовые миссии и подписывает отчёт дня."}</p><i>{closed ? `${earnedStars}/10 ⭐ · ${tomorrowLimit} ₽ завтра` : "Перейти к маминой проверке →"}</i></ViewLink>
       </section>
 
       {bottomNav}
@@ -547,7 +552,8 @@ export default function Adventure() {
 }
 
 function BottomNav({ active, onOpen }: { active: NavSection; onOpen: (section: NavSection) => void }) {
-  return <nav className="mobile-nav" aria-label="Основные разделы"><button className={active==="today"?"active":""} onClick={() => onOpen("today")}><NavIcon name="home"/><span>Сегодня</span></button><button className={active==="wallet"?"active":""} onClick={() => onOpen("wallet")}><NavIcon name="wallet"/><span>Копилка</span></button><button className={active==="journal"?"active":""} onClick={() => onOpen("journal")}><NavIcon name="journal"/><span>Мой день</span></button><button className={active==="parent"?"active":""} onClick={() => onOpen("parent")}><NavIcon name="parent"/><span>Маме</span></button></nav>;
+  const item = (section: NavSection, label: string, icon: "home" | "wallet" | "journal" | "parent") => <a href={section === "today" ? "#today-anchor" : `#${section}`} className={active===section?"active":""} onClick={(event) => { event.preventDefault(); onOpen(section); }}><NavIcon name={icon}/><span>{label}</span></a>;
+  return <nav className="mobile-nav" aria-label="Основные разделы">{item("today", "Сегодня", "home")}{item("wallet", "Копилка", "wallet")}{item("journal", "Мой день", "journal")}{item("parent", "Маме", "parent")}</nav>;
 }
 
 function DayLockedBanner({ onUnlock }: { onUnlock: () => void }) {
@@ -700,7 +706,7 @@ function ParentAnalyticsPanel({ day }: { day: string }) {
   </section>;
 }
 
-function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, stars, tomorrowLimit, rewardBudget, onBack, onOpenMission, onOpenWallet }: { day: string; progress: Progress; patch: (next: Partial<Progress>) => void; closed: boolean; onCloseDay: (signature: string) => void; onReopenDay: () => void; stars: number; tomorrowLimit: number; rewardBudget: number; onBack: () => void; onOpenMission: (id: MissionId) => void; onOpenWallet: () => void }) {
+function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, stars, tomorrowLimit, rewardBudget, canViewAdultAnalytics, onBack, onOpenMission, onOpenWallet }: { day: string; progress: Progress; patch: (next: Partial<Progress>) => void; closed: boolean; onCloseDay: (signature: string) => void; onReopenDay: () => void; stars: number; tomorrowLimit: number; rewardBudget: number; canViewAdultAnalytics: boolean; onBack: () => void; onOpenMission: (id: MissionId) => void; onOpenWallet: () => void }) {
   const baseWithoutReserve = stars - (progress.reserveStar ? 1 : 0);
   const bookReflections = BOOKS.flatMap((book) => {
     const reflection = progress.bookReflections?.[book.id];
@@ -718,7 +724,7 @@ function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, s
   return <main className="plain-screen parent-screen">
     <ScreenTop title="Мамина проверка" subtitle="Мамин раздел" icon="parent" onBack={onBack}/>
     <section className="parent-summary"><div><span>Итог Василисы</span><strong>{stars}/10 ⭐</strong></div><div><span>Лимит завтра</span><strong>{tomorrowLimit} ₽</strong></div></section>
-    <ParentAnalyticsPanel day={day}/>
+    {canViewAdultAnalytics && <ParentAnalyticsPanel day={day}/>}
     {bookReflections.length > 0 && <section className="parent-book-reflections"><div className="panel-title"><span className="panel-emblem bonus">★</span><div><small>Чтение без оценок</small><h2>Книжные заметки Василисы</h2></div></div>{bookReflections.map(({ book, reflection }) => <article key={book.id}><div><strong>{book.title}</strong><span>Папин персональный бонус · +{reflection.bonusStars} ⭐</span></div><p>{reflection.text}</p></article>)}</section>}
     <section className="review-panel"><div className="panel-title"><span className="panel-emblem">✓</span><div><small>Маршрут дня</small><h2>Что отмечено сегодня</h2></div></div><p className="review-hint">Нажмите на невыполненное задание, чтобы сразу открыть его.</p>{missions.map(m => { const done = progress.done.includes(m.id); return <button className={done ? "completed" : "needs-action"} disabled={done || closed} onClick={() => onOpenMission(m.id)} key={m.id}><span>{done ? "✓" : ""}</span><strong>{m.title}</strong><small>{done ? "выполнено" : "Открыть →"}</small></button>; })}</section>
     <section className="parent-settings"><div className="panel-title compact"><span className="panel-emblem bonus">★</span><div><small>Бонус</small><h2>Запасная звезда</h2></div></div><label className={(baseWithoutReserve === 9 && !closed) ? "" : "disabled"}><input type="checkbox" disabled={baseWithoutReserve !== 9 || closed} checked={progress.reserveStar} onChange={e => patch({ reserveStar: e.target.checked })}/><span><strong>Заменить одну пропущенную миссию</strong><small>Доступно только при результате 9/10. Выше 10/10 итог не поднимется.</small></span></label></section>

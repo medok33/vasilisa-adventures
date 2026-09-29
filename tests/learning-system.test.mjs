@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { decideSkillAdaptation, EDUCATION_PROFILE, generateDailyAssignments, isAnswerCorrect, SUBJECT_SKILLS } from "../app/learning-system.ts";
-import { createSiteSession, safeReturnTo, verifySiteSession } from "../app/site-auth.ts";
+import { createSiteSession, readSiteSession, safeReturnTo, verifySiteSession } from "../app/site-auth.ts";
 
 test("daily learning set contains both subjects and the agreed role mix", () => {
   const assignments = generateDailyAssignments({ day: "2026-09-01" });
@@ -135,10 +135,14 @@ test("answer comparison is case-insensitive and ignores terminal punctuation", (
 
 test("site session expires and return paths cannot leave the site", async () => {
   const now = Date.UTC(2026, 7, 29);
-  const token = await createSiteSession("test-secret", now);
+  const token = await createSiteSession("test-secret", "adult", now);
   assert.equal(await verifySiteSession(token, "test-secret", now + 1_000), true);
+  assert.equal((await readSiteSession(token, "test-secret", now + 1_000))?.role, "adult");
+  const childToken = await createSiteSession("test-secret", "child", now);
+  assert.equal((await readSiteSession(childToken, "test-secret", now + 1_000))?.role, "child");
   assert.equal(await verifySiteSession(token, "wrong-secret", now + 1_000), false);
   assert.equal(await verifySiteSession(token, "test-secret", now + 8 * 24 * 60 * 60 * 1000), false);
+  assert.equal(await verifySiteSession(`${Math.floor(now / 1000) + 1000}.unsigned`, "test-secret", now), false);
   assert.equal(safeReturnTo("https://example.com"), "/");
   assert.equal(safeReturnTo("/journal?day=1"), "/journal?day=1");
 });

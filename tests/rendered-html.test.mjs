@@ -58,10 +58,15 @@ test("home screen presents a persistent seven-step weekly adventure without extr
 
 test("parent analytics offers 7, 14 and 30 day read-only summaries without child answers", async () => {
   const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const auth = await readFile(new URL("../app/site-auth.ts", import.meta.url), "utf8");
   const analytics = await readFile(new URL("../app/parent-analytics.ts", import.meta.url), "utf8");
   const vdsRoute = await readFile(new URL("../vds/analytics-route.ts", import.meta.url), "utf8");
   const build = await readFile(new URL("../scripts/build-vds.sh", import.meta.url), "utf8");
   assert.match(adventure, /Учебная динамика/);
+  assert.match(adventure, /canViewAdultAnalytics && <ParentAnalyticsPanel/);
+  assert.match(page, /session\?\.role === "adult"/);
+  assert.match(auth, /SiteSessionRole = "adult" \| "child"/);
   assert.match(adventure, /\(\[7,14,30\] as const\)/);
   assert.match(adventure, /Это не оценка ребёнка/);
   assert.match(adventure, /без ответов, уровней усложнения, паролей и системных данных/);
@@ -69,7 +74,22 @@ test("parent analytics offers 7, 14 and 30 day read-only summaries without child
   assert.doesNotMatch(adventure, /skill\.label} · уровень/);
   assert.doesNotMatch(analytics, /expectedAnswer|password|token/i);
   assert.match(vdsRoute, /getLearningAnalytics/);
+  assert.match(vdsRoute, /session\.role !== "adult"/);
+  assert.match(vdsRoute, /status: 403/);
   assert.match(build, /vds\/analytics-route\.ts/);
+});
+
+test("home navigation remains usable before hydration and keeps enhanced in-app routing", async () => {
+  const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(adventure, /function ViewLink/);
+  assert.match(adventure, /href=\{href\}/);
+  assert.match(adventure, /event\.preventDefault\(\); onOpen\(view\)/);
+  assert.match(adventure, /<ViewLink view="wallet" className="money-stat"/);
+  assert.match(adventure, /<ViewLink view=\{mission\.id\} className="route-main"/);
+  assert.match(adventure, /<a href=\{section === "today" \? "#today-anchor" : `#\$\{section\}`\}/);
+  assert.match(styles, /\.mobile-nav a \{/);
+  assert.match(styles, /\.route-main \{[^}]*text-decoration: none/);
 });
 
 test("learning hints can be opened and closed while their use remains in progress analytics", async () => {
@@ -104,7 +124,7 @@ test("mom owns the review and signature flow while dad keeps contacts and book b
   assert.doesNotMatch(dailyContent, /мам/i);
   assert.match(adventure, /Мама подтверждает бытовые миссии/);
   assert.match(adventure, /Подпись мамы/);
-  assert.match(adventure, /<span>Маме<\/span>/);
+  assert.match(adventure, /item\("parent", "Маме", "parent"\)/);
   assert.match(adventure, /Есть чем поделиться с папой/);
   assert.match(adventure, /папин бонус/i);
   assert.doesNotMatch(adventure, /Подпись папы|Папа подтверждает бытовые миссии/);

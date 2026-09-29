@@ -31,8 +31,11 @@ APP_REVISION=$(git rev-parse HEAD)
 ```
 
 `SITE_AUTH_SECRET` must be a separate random value, not the site password.
-The administrator and child credentials create equivalent sessions for now;
-future role restrictions can be added without changing the stored progress.
+The administrator credential creates an `adult` session; the child credential
+creates a `child` session. Both use the same stored progress and both can open
+the mom review flow, but only the adult session can render or request learning
+analytics. Changing to role-bearing sessions invalidates older cookies once and
+requires a new login without changing saved progress.
 The application fails closed when any authentication variable is missing.
 Only `/api/health` remains public for the Docker healthcheck.
 The father's phone and messenger links are returned only by the authenticated

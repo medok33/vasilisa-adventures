@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   createSiteSession,
-  matchesSiteCredentials,
+  matchingSiteCredential,
   safeReturnTo,
   SITE_SESSION_COOKIE,
   SITE_SESSION_TTL_SECONDS,
@@ -29,17 +29,17 @@ export async function POST(request: Request) {
   const username = String(form.get("username") ?? "").slice(0, 100);
   const password = String(form.get("password") ?? "").slice(0, 200);
   const returnTo = safeReturnTo(String(form.get("returnTo") ?? "/"));
-  const credentialsMatch = await matchesSiteCredentials(username, password, [
-    { username: expectedUsername, password: expectedPassword },
-    { username: childUsername, password: childPassword },
+  const credential = await matchingSiteCredential(username, password, [
+    { username: expectedUsername, password: expectedPassword, role: "adult" },
+    { username: childUsername, password: childPassword, role: "child" },
   ]);
-  if (!credentialsMatch) {
+  if (!credential) {
     const failureParams = new URLSearchParams({ error: "1", returnTo });
     return relativeRedirect(`/login?${failureParams.toString()}`);
   }
 
   const response = relativeRedirect(returnTo);
-  response.cookies.set(SITE_SESSION_COOKIE, await createSiteSession(secret), {
+  response.cookies.set(SITE_SESSION_COOKIE, await createSiteSession(secret, credential.role), {
     httpOnly: true,
     secure: true,
     sameSite: "strict",
