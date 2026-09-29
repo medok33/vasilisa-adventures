@@ -29,7 +29,7 @@ export function safeAnalyticsExport(report: ParentAnalytics) {
   return {
     title: "Учебная динамика Василисы", period: report.period, from: report.from, to: report.to, summary: stats(report.summary),
     subjects: report.subjects.map((subject) => ({ subject: subject.subject, label: subject.label, stats: stats(subject.stats) })),
-    skills: report.skills.map((skill) => ({ subject: skill.subject, skill: skill.skill, label: skill.label, level: skill.level, state: skill.state, explanation: skill.explanation, reviewDueDates: [...skill.reviewDueDates], stats: stats(skill.stats) })),
+    skills: report.skills.map((skill) => ({ subject: skill.subject, skill: skill.skill, label: skill.label, stats: stats(skill.stats) })),
     weakTopics: report.weakTopics.map((topic) => ({ subject: topic.subject, skill: topic.skill, label: topic.label, firstAttemptAccuracy: topic.firstAttemptAccuracy, nextReviewDate: topic.nextReviewDate })),
   };
 }

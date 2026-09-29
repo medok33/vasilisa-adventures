@@ -64,7 +64,9 @@ test("parent analytics offers 7, 14 and 30 day read-only summaries without child
   assert.match(adventure, /Учебная динамика/);
   assert.match(adventure, /\(\[7,14,30\] as const\)/);
   assert.match(adventure, /Это не оценка ребёнка/);
-  assert.match(adventure, /без ответов, паролей и системных данных/);
+  assert.match(adventure, /без ответов, уровней усложнения, паролей и системных данных/);
+  assert.doesNotMatch(adventure, /Уровни по всем навыкам/);
+  assert.doesNotMatch(adventure, /skill\.label} · уровень/);
   assert.doesNotMatch(analytics, /expectedAnswer|password|token/i);
   assert.match(vdsRoute, /getLearningAnalytics/);
   assert.match(build, /vds\/analytics-route\.ts/);

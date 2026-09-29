@@ -694,9 +694,8 @@ function ParentAnalyticsPanel({ day }: { day: string }) {
         <div className="subject-analytics">{report.subjects.map((subject) => <article key={subject.subject}><div><span>{subject.label}</span><b>{subject.stats.firstAttemptAccuracy}%</b></div><i><em style={{width:`${subject.stats.firstAttemptAccuracy}%`}}/></i><small>{subject.stats.firstAttemptCorrect} из {subject.stats.firstAttemptTotal} с первой попытки · исправлено {subject.stats.correctedAfterRetry}</small></article>)}</div>
       </>}
       <div className="weak-topics"><h3>Что мягко закрепить</h3>{report.weakTopics.length ? report.weakTopics.map((topic) => <article key={`${topic.subject}-${topic.skill}`}><div><strong>{topic.label}</strong><span>{topic.subject === "math" ? "Математика" : "English"} · {topic.firstAttemptAccuracy}% с первой попытки</span></div><b>{topic.nextReviewDate ? `Повторение ${date(topic.nextReviewDate)}` : "Наблюдаем без спешки"}</b></article>) : <p>Сейчас нет тем, которым требуется отдельное закрепление.</p>}</div>
-      <details className="skills-details"><summary>Уровни по всем навыкам</summary><div>{report.skills.map((skill) => <article key={`${skill.subject}-${skill.skill}`}><span>{skill.subject === "math" ? "Математика" : "English"}</span><strong>{skill.label} · уровень {skill.level}</strong><p>{skill.explanation}</p></article>)}</div></details>
       <button className="analytics-download" onClick={downloadAnalytics}>Скачать безопасный отчёт</button>
-      <p className="analytics-safety">В файле только сводные числа и уровни: без ответов, паролей и системных данных.</p>
+      <p className="analytics-safety">В файле только сводная учебная динамика: без ответов, уровней усложнения, паролей и системных данных.</p>
     </>}
   </section>;
 }

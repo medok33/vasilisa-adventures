@@ -56,6 +56,7 @@ test("parent analytics matches stored attempts and stays read-only", async () =>
     assert.equal(report.skills.length, 24);
     const exported = JSON.stringify(safeAnalyticsExport({ ...report, expectedAnswer: "secret", subjects: report.subjects.map((subject) => ({ ...subject, answer: "secret" })) }));
     assert.doesNotMatch(exported, /secret|expectedAnswer|prompt/);
+    assert.doesNotMatch(exported, /"level"|"state"|"explanation"|"reviewDueDates"/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
