@@ -164,6 +164,12 @@ test("wallet separates weekly savings from the real bank account", async () => {
   assert.match(adventure, /фактическая сумма на карте/);
   assert.match(adventure, /раз в неделю на 700 ₽/);
   assert.match(adventure, /В конце недели накопленное переводится на настоящую карту/);
+  assert.match(adventure, /bank-account-summary/);
+  assert.match(adventure, /bank-account-note/);
+  assert.match(adventure, /Потратить сегодня/);
+  assert.match(adventure, /Лимит на завтра/);
+  assert.match(adventure, /className="savings-spending"><span>В копилку/);
+  assert.match(adventure, /todayLimit=\{todayLimit\}/);
   assert.match(adventure, /canEditBankBalance/);
   assert.match(adventure, /Сделала зарядку"/);
   assert.doesNotMatch(adventure, /Сделала зарядку 5 минут/);

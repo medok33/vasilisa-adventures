@@ -243,11 +243,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .wallet-hero span { font-size: 10px; opacity: .66; }
 .wallet-hero strong { display: block; margin: 9px 0; font-size: 55px; letter-spacing: -.06em; }
 .wallet-hero p { max-width: 520px; margin: 0; opacity: .7; font-size: 12px; line-height: 1.55; }
-.bank-account-card { display: grid; grid-template-columns: minmax(0,1fr) minmax(210px,.65fr); gap: 24px; align-items: end; margin-top: 13px; padding: 28px; border: 1px solid #dce8f5; border-radius: 28px; background: linear-gradient(145deg,#f8fbff,#eaf4ff); box-shadow: var(--shadow); }
+.bank-account-card { display: grid; grid-template-columns: minmax(150px,.68fr) minmax(0,1.32fr); gap: 18px 28px; align-items: center; margin-top: 13px; padding: 28px; border: 1px solid #dce8f5; border-radius: 28px; background: linear-gradient(145deg,#f8fbff,#eaf4ff); box-shadow: var(--shadow); }
 .bank-account-card>div>span,.bank-account-card label>span { color: #3c6f9e; font-size: 9px; font-weight: 780; letter-spacing: .08em; text-transform: uppercase; }
-.bank-account-card>div>strong { display: block; margin: 7px 0 5px; color: #173b5d; font-size: 36px; letter-spacing: -.045em; }
-.bank-account-card p { max-width: 520px; margin: 0; color: #64798d; font-size: 11px; line-height: 1.55; }
-.bank-account-card label { display: grid; gap: 7px; }
+.bank-account-card>div>strong { display: block; margin: 7px 0 0; color: #173b5d; font-size: 36px; letter-spacing: -.045em; }
+.bank-account-card p { max-width: 520px; margin: 0; padding: 14px 16px; border-left: 3px solid #82b7e8; border-radius: 0 16px 16px 0; color: #526f89; background: rgba(255,255,255,.54); font-size: 11px; line-height: 1.55; }
+.bank-account-card label { display: grid; grid-column: 1/-1; gap: 7px; }
 .bank-account-card input { width: 100%; min-height: 46px; padding: 0 13px; border: 1px solid #cbdceb; border-radius: 13px; color: #173b5d; background: rgba(255,255,255,.92); font: inherit; font-size: 16px; font-weight: 700; }
 .bank-account-card label small { color: #778b9e; font-size: 8px; }
 .goal-panel,.money-lesson,.review-panel,.parent-settings { margin-top: 13px; padding: 28px; }
@@ -417,19 +417,23 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .close-day.reopen { color: #79552d; background: #f6e7d3; }
 .parent-note { margin: 12px 14px 0; color: var(--muted); font-size: 9px; line-height: 1.5; text-align: center; }
 
-.allocation-panel { margin-top: 13px; padding: 28px; }
+.allocation-panel { position: relative; overflow: hidden; margin-top: 13px; padding: 28px; border: 1px solid #dbe8fb; border-radius: 30px; background: linear-gradient(145deg,#ffffff 0%,#f0f6ff 55%,#f2fbf6 100%); box-shadow: 0 18px 48px rgba(31,73,124,.12); }
+.allocation-panel::before { content: ""; position: absolute; top: -75px; right: -55px; width: 190px; height: 190px; border-radius: 50%; background: radial-gradient(circle,rgba(84,150,255,.2),rgba(84,150,255,0) 68%); pointer-events: none; }
 .allocation-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.allocation-heading span,.settings-title span { color: #0071e3; font-size: 9px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.allocation-heading span,.settings-title span { color: #006fdc; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .allocation-heading h2,.settings-title h2 { margin: 6px 0; font-size: 27px; letter-spacing: -.04em; }
 .allocation-heading p { max-width: 390px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
-.allocation-heading>b { padding: 7px 10px; border-radius: 99px; color: #277248; background: #e9f8ef; font-size: 9px; white-space: nowrap; }
-.allocation-result { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 21px 0; }
+.allocation-heading>b { position: relative; padding: 8px 12px; border: 1px solid rgba(24,163,107,.14); border-radius: 99px; color: #1f744b; background: #ddf7e8; box-shadow: 0 6px 16px rgba(24,163,107,.1); font-size: 9px; white-space: nowrap; }
+.allocation-result { position: relative; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; margin: 21px 0; }
 .allocation-result article,.money-review-grid article { padding: 17px; border-radius: 18px; background: #f5f7fa; }
-.allocation-result article:last-child { color: #145f44; background: #eaf8f0; }
-.allocation-result span,.money-review-grid span { display: block; color: #727b85; font-size: 9px; }
+.allocation-result article { min-width: 0; border: 1px solid rgba(255,255,255,.72); box-shadow: 0 10px 24px rgba(39,69,103,.1); }
+.allocation-result article.today-spending { color: #174d7c; background: linear-gradient(145deg,#e8f4ff,#d8ebff); }
+.allocation-result article.tomorrow-spending { color: #4c4382; background: linear-gradient(145deg,#f2efff,#e7e1ff); }
+.allocation-result article.savings-spending { color: #145f44; background: linear-gradient(145deg,#edfbf3,#daf5e6); }
+.allocation-result span,.money-review-grid span { display: block; color: #657688; font-size: 9px; font-weight: 720; }
 .allocation-result strong,.money-review-grid strong { display: block; margin: 6px 0 3px; font-size: 24px; letter-spacing: -.045em; }
-.allocation-result small,.money-review-grid small { color: #858c94; font-size: 8px; }
-.allocation-control { display: block; padding: 17px; border: 1px solid #e7e9ed; border-radius: 18px; }
+.allocation-result small,.money-review-grid small { color: #778493; font-size: 8px; line-height: 1.35; }
+.allocation-control { position: relative; display: block; padding: 17px; border: 1px solid #dce7f2; border-radius: 18px; background: rgba(255,255,255,.68); }
 .allocation-control>span { display: block; margin-bottom: 12px; color: #5e6670; font-size: 10px; font-weight: 680; }
 .allocation-control>div { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; gap: 8px; }
 .allocation-control button { height: 42px; border: 0; border-radius: 13px; color: #0068ce; background: #edf6ff; font-size: 21px; cursor: pointer; }
@@ -582,7 +586,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .word-options button { flex: 1; }
   .wallet-hero { padding: 29px; }
   .wallet-hero strong { font-size: 46px; }
-  .bank-account-card { grid-template-columns: 1fr; padding: 22px; }
+  .bank-account-card { grid-template-columns: minmax(120px,.72fr) minmax(0,1.28fr); gap: 16px; padding: 22px; }
   .bank-account-card>div>strong { font-size: 32px; }
   .goal-panel,.money-lesson,.review-panel,.parent-settings,.allocation-panel { padding: 22px; }
   .parent-analytics { padding: 21px 17px; border-radius: 23px; }.analytics-heading { flex-direction: column; }.period-switch { width: 100%; }.period-switch button { flex: 1; }.analytics-summary { grid-template-columns: 1fr 1fr; }.subject-analytics { grid-template-columns: 1fr; }.weak-topics article { align-items: flex-start; flex-direction: column; gap: 5px; }
@@ -609,7 +613,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .money-review-link { grid-template-columns: 45px 1fr; padding: 19px; }.money-review-link>b { grid-column: 2; }
   .pdf-report-card { grid-template-columns: 48px 1fr; padding: 18px; }.pdf-report-card button { grid-column: 1/-1; width: 100%; }.pdf-emblem { width: 46px; height: 46px; }
   .allocation-heading,.settings-title { flex-direction: column; }
-  .allocation-result,.money-review-grid { grid-template-columns: 1fr 1fr; }
+  .allocation-result { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; }
+  .allocation-result article { padding: 13px 10px; border-radius: 15px; }
+  .allocation-result strong { font-size: 21px; }
+  .allocation-result small { font-size: 7px; }
+  .money-review-grid { grid-template-columns: 1fr 1fr; }
   .signature-card { grid-template-columns: 1fr; padding: 22px; }
   .signature-card>img,.signature-card>button { grid-column: 1; width: 100%; }
   .signature-card>img { grid-row: auto; height: 74px; }
@@ -630,7 +638,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .reward-pill { grid-column: 2; justify-self: start; }
   .dashboard-strip strong { font-size: 19px; }
   .mood-row button { height: 49px; font-size: 20px; }
-  .allocation-result,.money-review-grid { grid-template-columns: 1fr; }
+  .allocation-result { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; }
+  .allocation-result article { padding: 12px 7px; }
+  .allocation-result span { font-size: 8px; }
+  .allocation-result strong { font-size: 19px; }
+  .allocation-result small { font-size: 6.5px; }
+  .money-review-grid { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation: none!important; transition: none!important; scroll-behavior: auto!important; } }
 /* Private-site sign in */
