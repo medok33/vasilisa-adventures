@@ -11,6 +11,7 @@ import { weeklyAdventure, weeklyFragmentCount } from "./adventure-story";
 import { safeAnalyticsExport, type ParentAnalytics } from "./parent-analytics";
 import { createViewNavigation } from "./view-navigation";
 import { safePushState, safeReplaceState } from "./browser-history";
+import { storedMoney } from "./money-system";
 
 type MissionId = "morning" | "reading" | "math" | "english" | "order" | "kindness" | "independence";
 type View = "home" | "wallet" | "journal" | "parent" | MissionId;
@@ -47,7 +48,8 @@ type Progress = {
   dadNote: string;
   dadNotifiedText: string;
   dadNotifiedAt: string;
-  balance: number;
+  savingsBalance: number;
+  bankBalance: number;
   goalTitle: string;
   goalAmount: number;
   reserveStar: boolean;
@@ -83,7 +85,7 @@ const emptyProgress: Progress = {
   done: [], morningChecks: [], readingStart: "", readingEnd: "", readingMinutes: 15, readingAnswer: "", readingBook: "emerald", bookProgress: {}, bookReflections: {}, readingQuestionAnswers: {}, readingSession: null,
   mathAnswers: ["", "", "", "", ""], mathAttempts: 0, englishAnswers: ["", "", "", "", ""], englishAttempts: 0, learningHistory: emptyLearningHistory(), learningHints: {}, orderChecks: [],
   kindnessChoice: "", kindnessNote: "", independenceChoice: "", independenceNote: "", mood: "", goodThing: "", hardThing: "", dadNote: "", dadNotifiedText: "", dadNotifiedAt: "",
-  balance: 0, goalTitle: "", goalAmount: 0, reserveStar: false, decision: "",
+  savingsBalance: 0, bankBalance: 0, goalTitle: "", goalAmount: 0, reserveStar: false, decision: "",
   savingsTransfer: 0, savingsApplied: false, motherSignature: "", signedAt: "",
 };
 
@@ -91,12 +93,12 @@ const morningItems = [
   ["wash", "Умылась и почистила зубы"],
   ["bed", "Заправила кровать"],
   ["breakfast", "Позавтракала и убрала за собой"],
-  ["exercise", "Сделала зарядку 5 минут"],
+  ["exercise", "Сделала зарядку"],
 ];
 const APP_TIME_ZONE = process.env.NEXT_PUBLIC_APP_TIME_ZONE || "Europe/Moscow";
 function currentDay() { return new Intl.DateTimeFormat("sv-SE", { timeZone: APP_TIME_ZONE }).format(new Date()); }
 function dayLabel(day: string) { return new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${day}T12:00:00`)); }
-function clampMoney(value: number) { return Math.max(0, Math.min(1_000_000, Math.round(value || 0))); }
+function clampMoney(value: number) { return storedMoney(value); }
 const viewHashes: Record<Exclude<View, "home">, string> = {
   wallet: "wallet", journal: "journal", parent: "parent", morning: "morning", reading: "reading", math: "math", english: "english", order: "order", kindness: "kindness", independence: "independence",
 };
@@ -261,7 +263,7 @@ export default function Adventure({ canViewAdultAnalytics = false }: { canViewAd
   function reopenDay() {
     setProgress((current) => ({
       ...current,
-      balance: current.savingsApplied ? Math.max(0, current.balance - current.savingsTransfer) : current.balance,
+      savingsBalance: current.savingsApplied ? Math.max(0, current.savingsBalance - current.savingsTransfer) : current.savingsBalance,
       savingsApplied: false,
       motherSignature: "",
       signedAt: "",
@@ -271,7 +273,7 @@ export default function Adventure({ canViewAdultAnalytics = false }: { canViewAd
   function closeDay(signature: string) {
     setProgress((current) => ({
       ...current,
-      balance: current.savingsApplied ? current.balance : current.balance + Math.min(Math.floor(earnedStars * 15 / 10) * 10, current.savingsTransfer),
+      savingsBalance: current.savingsApplied ? current.savingsBalance : current.savingsBalance + Math.min(Math.floor(earnedStars * 15 / 10) * 10, current.savingsTransfer),
       savingsTransfer: Math.min(Math.floor(earnedStars * 15 / 10) * 10, current.savingsTransfer),
       savingsApplied: true,
       motherSignature: signature,
@@ -512,7 +514,7 @@ export default function Adventure({ canViewAdultAnalytics = false }: { canViewAd
     </>;
   }
 
-  if (view === "wallet") return <><WalletScreen progress={progress} patch={patch} todayLimit={todayLimit} tomorrowLimit={tomorrowLimit} rewardBudget={rewardBudget} closed={closed} onUnlock={reopenDay} onBack={goBack} />{bottomNav}</>;
+  if (view === "wallet") return <><WalletScreen progress={progress} patch={patch} tomorrowLimit={tomorrowLimit} rewardBudget={rewardBudget} closed={closed} canEditBankBalance={canViewAdultAnalytics} onUnlock={reopenDay} onBack={goBack} />{bottomNav}</>;
   if (view === "journal") return <><JournalScreen day={day} progress={progress} patch={patch} history={history} historyLoading={historyLoading} dadContacts={dadContacts} closed={closed} onUnlock={reopenDay} onNotifyDad={notifyDad} onBack={goBack} />{bottomNav}</>;
   if (view === "parent") return <><ParentScreen day={day} progress={progress} patch={patch} closed={closed} onCloseDay={closeDay} onReopenDay={reopenDay} stars={earnedStars} tomorrowLimit={tomorrowLimit} rewardBudget={rewardBudget} canViewAdultAnalytics={canViewAdultAnalytics} onBack={goBack} onOpenMission={(id) => goTo(id)} onOpenWallet={() => goTo("wallet")} />{bottomNav}</>;
 
@@ -531,7 +533,7 @@ export default function Adventure({ canViewAdultAnalytics = false }: { canViewAd
       </section>
 
       <section className="dashboard-strip" id="wallet-anchor">
-        <ViewLink view="wallet" className="money-stat" onOpen={goTo}><span>Можно сегодня</span><strong>{todayLimit} ₽</strong><small>В копилке {progress.balance.toLocaleString("ru-RU")} ₽ <b>→</b></small></ViewLink>
+        <ViewLink view="wallet" className="money-stat" onOpen={goTo}><span>Можно сегодня</span><strong>{todayLimit} ₽</strong><small>В копилке {progress.savingsBalance.toLocaleString("ru-RU")} ₽ <b>→</b></small></ViewLink>
         <div className="star-summary"><span>Звёзды сегодня</span><strong>{earnedStars}<small> из 10</small></strong><div className="mini-stars">{Array.from({length:10},(_,i)=><i className={i<earnedStars?"filled":""} key={i} />)}</div></div>
         <div className="tomorrow-stat"><span>Откроется завтра</span><strong>{tomorrowLimit} ₽</strong><small>После проверки мамой</small></div>
       </section>
@@ -639,14 +641,14 @@ function Celebration({ event }: { event: CelebrationEvent }) {
 }
 
 function ScreenTop({ title, subtitle, onBack, icon }: { title: string; subtitle: string; onBack: () => void; icon?: "wallet" | "journal" | "parent" }) { return <header className={`screen-top ${icon ? "has-icon" : ""}`}><BackButton onBack={onBack}/>{icon && <span className={`screen-icon ${icon}`}><NavIcon name={icon}/></span>}<div><strong>{title}</strong><span>{subtitle}</span></div></header>; }
-function WalletScreen({ progress, patch, todayLimit, tomorrowLimit, rewardBudget, closed, onUnlock, onBack }: { progress: Progress; patch: (next: Partial<Progress>) => void; todayLimit: number; tomorrowLimit: number; rewardBudget: number; closed: boolean; onUnlock: () => void; onBack: () => void }) {
-  const left = Math.max(0, progress.goalAmount - progress.balance);
-  const percent = progress.goalAmount ? Math.min(100, Math.round(progress.balance / progress.goalAmount * 100)) : 0;
+function WalletScreen({ progress, patch, tomorrowLimit, rewardBudget, closed, canEditBankBalance, onUnlock, onBack }: { progress: Progress; patch: (next: Partial<Progress>) => void; tomorrowLimit: number; rewardBudget: number; closed: boolean; canEditBankBalance: boolean; onUnlock: () => void; onBack: () => void }) {
+  const left = Math.max(0, progress.goalAmount - progress.savingsBalance);
+  const percent = progress.goalAmount ? Math.min(100, Math.round(progress.savingsBalance / progress.goalAmount * 100)) : 0;
   const [editingGoal, setEditingGoal] = useState(!progress.goalTitle || !progress.goalAmount);
   const maxTransfer = Math.floor(rewardBudget / 10) * 10;
   const transfer = Math.min(maxTransfer, progress.savingsTransfer);
   const spendingPart = rewardBudget - transfer;
-  return <main className={`plain-screen ${closed ? "screen-locked" : ""}`}><ScreenTop title="Моя копилка" subtitle="Ты решаешь, куда направить награду" onBack={onBack}/>{closed && <DayLockedBanner onUnlock={onUnlock}/>}<section className="wallet-hero"><span>На банковском счёте</span><strong>{progress.balance.toLocaleString("ru-RU")} ₽</strong><p>Сегодня можно потратить до {todayLimit} ₽. Новая награда распределяется отдельно и подтвердится мамой.</p></section><section className="allocation-panel"><div className="allocation-heading"><div><span>Награда за сегодня</span><h2>Распредели {rewardBudget} ₽</h2><p>Выбери сумму для копилки шагом 10 ₽. Остальное увеличит лимит на завтра.</p></div><b>{closed ? "Подтверждено" : "Можно менять"}</b></div><div className="allocation-result"><article><span>На траты завтра</span><strong>{spendingPart} ₽</strong><small>Лимит станет {tomorrowLimit} ₽</small></article><article><span>В копилку</span><strong>{transfer} ₽</strong><small>Счёт станет {(progress.balance + (progress.savingsApplied ? 0 : transfer)).toLocaleString("ru-RU")} ₽</small></article></div><label className="allocation-control"><span>Перевести в копилку</span><div><button disabled={closed || transfer <= 0} onClick={()=>patch({savingsTransfer:Math.max(0,transfer-10)})}>−</button><output>{transfer} ₽</output><button disabled={closed || transfer >= maxTransfer} onClick={()=>patch({savingsTransfer:Math.min(maxTransfer,transfer+10)})}>+</button></div><input aria-label="Сумма в копилку" type="range" min="0" max={maxTransfer || 0} step="10" disabled={closed || maxTransfer === 0} value={transfer} onChange={e=>patch({savingsTransfer:Number(e.target.value)})}/></label>{rewardBudget % 10 !== 0 && <small className="allocation-note">Остаток {rewardBudget % 10} ₽ автоматически идёт в лимит на завтра.</small>}</section><section className="goal-panel"><div className="goal-title-row"><div><span>Моя цель</span><strong>{progress.goalTitle || "Выбери, на что копить"}</strong><small>{progress.goalAmount ? `Осталось накопить ${left.toLocaleString("ru-RU")} ₽` : "Придумай цель и укажи её стоимость"}</small></div><b>{percent}%</b></div><div className="goal-line"><i style={{width:`${percent}%`}}/></div><button className="goal-edit-button" onClick={() => setEditingGoal((value) => !value)}>{editingGoal ? "Свернуть настройку" : progress.goalTitle ? "Изменить цель" : "Выбрать цель"}<span>→</span></button>{editingGoal && <div className="goal-editor"><label><span>Что ты хочешь?</span><input value={progress.goalTitle} onChange={e=>patch({goalTitle:e.target.value})} placeholder="Например, ролики"/></label><label><span>Сколько это стоит?</span><input type="number" inputMode="numeric" value={progress.goalAmount || ""} onChange={e=>patch({goalAmount:clampMoney(Number(e.target.value))})} placeholder="5000 ₽"/></label><p>Можно выбрать самой, а потом обсудить с мамой или папой.</p></div>}</section></main>;
+  return <main className={`plain-screen ${closed ? "screen-locked" : ""}`}><ScreenTop title="Моя копилка" subtitle="Ты решаешь, куда направить награду" onBack={onBack}/>{closed && <DayLockedBanner onUnlock={onUnlock}/>}<section className="wallet-hero"><span>Всего в копилке</span><strong>{progress.savingsBalance.toLocaleString("ru-RU")} ₽</strong><p>В течение недели здесь собирается часть заработанной награды. В конце недели накопленное переводится на настоящую карту.</p></section><section className="bank-account-card"><div><span>Банковский счёт</span><strong>{progress.bankBalance.toLocaleString("ru-RU")} ₽</strong><p>Это фактическая сумма на карте. Папа пополняет карту раз в неделю на 700 ₽ — по 100 ₽ на каждый день.</p></div>{canEditBankBalance && <label><span>Обновить сумму на карте</span><input type="number" inputMode="numeric" min="0" max="1000000" disabled={closed} value={progress.bankBalance || ""} onChange={e=>patch({bankBalance:clampMoney(Number(e.target.value))})} placeholder="0 ₽"/><small>Поле доступно только во взрослом аккаунте.</small></label>}</section><section className="allocation-panel"><div className="allocation-heading"><div><span>Награда за сегодня</span><h2>Распредели {rewardBudget} ₽</h2><p>Выбери сумму для копилки шагом 10 ₽. Остальное увеличит лимит на завтра.</p></div><b>{closed ? "Подтверждено" : "Можно менять"}</b></div><div className="allocation-result"><article><span>Потратить завтра</span><strong>{tomorrowLimit} ₽</strong><small>100 ₽ базово + {spendingPart} ₽ награды</small></article><article><span>В копилку сегодня</span><strong>{transfer} ₽</strong><small>Всего будет {(progress.savingsBalance + (progress.savingsApplied ? 0 : transfer)).toLocaleString("ru-RU")} ₽</small></article></div><label className="allocation-control"><span>Отложить в копилку</span><div><button disabled={closed || transfer <= 0} onClick={()=>patch({savingsTransfer:Math.max(0,transfer-10)})}>−</button><output>{transfer} ₽</output><button disabled={closed || transfer >= maxTransfer} onClick={()=>patch({savingsTransfer:Math.min(maxTransfer,transfer+10)})}>+</button></div><input aria-label="Сумма в копилку" type="range" min="0" max={maxTransfer || 0} step="10" disabled={closed || maxTransfer === 0} value={transfer} onChange={e=>patch({savingsTransfer:Number(e.target.value)})}/></label>{rewardBudget % 10 !== 0 && <small className="allocation-note">Остаток {rewardBudget % 10} ₽ автоматически идёт в лимит на завтра.</small>}</section><section className="goal-panel"><div className="goal-title-row"><div><span>Моя цель</span><strong>{progress.goalTitle || "Выбери, на что копить"}</strong><small>{progress.goalAmount ? `Осталось накопить ${left.toLocaleString("ru-RU")} ₽` : "Придумай цель и укажи её стоимость"}</small></div><b>{percent}%</b></div><div className="goal-line"><i style={{width:`${percent}%`}}/></div><button className="goal-edit-button" onClick={() => setEditingGoal((value) => !value)}>{editingGoal ? "Свернуть настройку" : progress.goalTitle ? "Изменить цель" : "Выбрать цель"}<span>→</span></button>{editingGoal && <div className="goal-editor"><label><span>Что ты хочешь?</span><input value={progress.goalTitle} onChange={e=>patch({goalTitle:e.target.value})} placeholder="Например, ролики"/></label><label><span>Сколько это стоит?</span><input type="number" inputMode="numeric" value={progress.goalAmount || ""} onChange={e=>patch({goalAmount:clampMoney(Number(e.target.value))})} placeholder="5000 ₽"/></label><p>Можно выбрать самой, а потом обсудить с мамой или папой.</p></div>}</section></main>;
 }
 
 const moods = [{id:"joy",label:"Радостно"},{id:"calm",label:"Спокойно"},{id:"okay",label:"Обычно"},{id:"sad",label:"Грустно"},{id:"tired",label:"Устала"}] as const;
@@ -736,7 +738,7 @@ function ParentScreen({ day, progress, patch, closed, onCloseDay, onReopenDay, s
     {bookReflections.length > 0 && <section className="parent-book-reflections"><div className="panel-title"><span className="panel-emblem bonus">★</span><div><small>Чтение без оценок</small><h2>Книжные заметки Василисы</h2></div></div>{bookReflections.map(({ book, reflection }) => <article key={book.id}><div><strong>{book.title}</strong><span>Папин персональный бонус · +{reflection.bonusStars} ⭐</span></div><p>{reflection.text}</p></article>)}</section>}
     <section className="review-panel"><div className="panel-title"><span className="panel-emblem">✓</span><div><small>Маршрут дня</small><h2>Что отмечено сегодня</h2></div></div><p className="review-hint">Нажмите на невыполненное задание, чтобы сразу открыть его.</p>{missions.map(m => { const done = progress.done.includes(m.id); return <button className={done ? "completed" : "needs-action"} disabled={done || closed} onClick={() => onOpenMission(m.id)} key={m.id}><span>{done ? "✓" : ""}</span><strong>{m.title}</strong><small>{done ? "выполнено" : "Открыть →"}</small></button>; })}</section>
     <section className="parent-settings"><div className="panel-title compact"><span className="panel-emblem bonus">★</span><div><small>Бонус</small><h2>Запасная звезда</h2></div></div><label className={(baseWithoutReserve === 9 && !closed) ? "" : "disabled"}><input type="checkbox" disabled={baseWithoutReserve !== 9 || closed} checked={progress.reserveStar} onChange={e => patch({ reserveStar: e.target.checked })}/><span><strong>Заменить одну пропущенную миссию</strong><small>Доступно только при результате 9/10. Выше 10/10 итог не поднимется.</small></span></label></section>
-    <button className="money-review-link" onClick={onOpenWallet}><span className="screen-icon wallet"><NavIcon name="wallet"/></span><div><small>Распределение награды</small><strong>Траты и копилка</strong><p>{tomorrowLimit} ₽ завтра · +{transfer} ₽ на банковский счёт</p></div><b>Открыть →</b></button>
+    <button className="money-review-link" onClick={onOpenWallet}><span className="screen-icon wallet"><NavIcon name="wallet"/></span><div><small>Распределение награды</small><strong>Траты и копилка</strong><p>{tomorrowLimit} ₽ завтра · +{transfer} ₽ в копилку</p></div><b>Открыть →</b></button>
     <section className={`signature-card ${progress.motherSignature ? "signed" : ""}`}><div><span>Подпись мамы</span><h2>{progress.motherSignature ? "День проверен" : "Нужна перед закрытием дня"}</h2><p>{progress.motherSignature ? "Мамина подпись сохранена вместе с итогом дня." : "Нажмите кнопку — откроется большое поле, где мама сможет расписаться пальцем."}</p></div>{progress.motherSignature && <img src={progress.motherSignature} alt="Сохранённая подпись мамы"/>}<button disabled={closed} onClick={() => setSignatureOpen(true)}>{progress.motherSignature ? "Подписать заново" : "Маме расписаться"}</button></section>
     <button className={`close-day ${closed ? "reopen" : ""}`} onClick={closed ? onReopenDay : confirm}>{closed ? "Открыть день для исправления" : "Подтвердить и закрыть день"}</button>
     {closed && progress.motherSignature && <section className="pdf-report-card"><span className="pdf-emblem">PDF</span><div><strong>Заверено мамой</strong></div><button onClick={makePdf} disabled={pdfState === "building"}>{pdfState === "building" ? "Собираю…" : "Скачать отчёт"}</button>{pdfState === "error" && <small>Не получилось собрать файл. Попробуйте ещё раз.</small>}</section>}
@@ -799,6 +801,7 @@ export function buildDayPdfDefinition({ day, progress, stars, tomorrowLimit, rew
   });
   const checkedAt = progress.signedAt ? new Date(progress.signedAt).toLocaleString("ru-RU", { timeZone: APP_TIME_ZONE, dateStyle: "long", timeStyle: "short" }) : dayLabel(day);
   const progressDots = Array.from({ length: 10 }, (_, index) => ({ type: "ellipse" as const, x: 4 + index * 12, y: 6, r1: 3.6, r2: 3.6, color: index < stars ? "#FFB12A" : "#DDE3F2" }));
+  const savingsToday = Math.min(Math.floor(rewardBudget / 10) * 10, progress.savingsTransfer);
   const definition: TDocumentDefinitions = {
     pageSize: "A4",
     pageMargins: [34, 34, 34, 54],
@@ -831,6 +834,13 @@ export function buildDayPdfDefinition({ day, progress, stars, tomorrowLimit, rew
         { stack: [{ text: "НАГРАДА ДНЯ", style: "statLabel" }, { text: `${rewardBudget} ₽`, style: "statValue" }, { text: "за сегодняшний маршрут", style: "statSmall" }], fillColor: "#E6FAF3" },
         { stack: [{ text: "ЗАВТРА", style: "statLabel" }, { text: `${tomorrowLimit} ₽`, style: "statValue" }, { text: "откроется после проверки", style: "statSmall" }], fillColor: "#E8F1FF" },
       ]] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 12, paddingRight: () => 12, paddingTop: () => 12, paddingBottom: () => 12 }, margin: [0, 0, 0, 17] },
+      { columns: [{ text: "Деньги и накопления", style: "sectionTitle" }, { text: "Копилка и карта учитываются отдельно", style: "sectionHint", alignment: "right" }], margin: [0, 0, 0, 9] },
+      { table: { widths: ["*", "*", "*"], body: [[
+        { stack: [{ text: "В КОПИЛКУ СЕГОДНЯ", style: "statLabel" }, { text: `+${savingsToday} ₽`, style: "statValue" }, { text: "из награды этого дня", style: "statSmall" }], fillColor: "#E6FAF3" },
+        { stack: [{ text: "ВСЕГО В КОПИЛКЕ", style: "statLabel" }, { text: `${progress.savingsBalance} ₽`, style: "statValue" }, { text: "до перевода на карту", style: "statSmall" }], fillColor: "#FFF3C8" },
+        { stack: [{ text: "ПОТРАТИТЬ ЗАВТРА", style: "statLabel" }, { text: `${tomorrowLimit} ₽`, style: "statValue" }, { text: "дневной лимит", style: "statSmall" }], fillColor: "#E8F1FF" },
+      ]] }, layout: { hLineWidth: () => 0, vLineWidth: () => 0, paddingLeft: () => 12, paddingRight: () => 12, paddingTop: () => 12, paddingBottom: () => 12 }, margin: [0, 0, 0, 8] },
+      { text: `Банковский счёт: ${progress.bankBalance} ₽. Папа пополняет карту раз в неделю на 700 ₽ — по 100 ₽ на каждый день. Накопленное в копилке переводится на карту в конце недели.`, style: "financeNote", margin: [0, 0, 0, 17] },
       { columns: [{ text: "Маршрут дня", style: "sectionTitle" }, { text: "7 шагов большого приключения", style: "sectionHint", alignment: "right" }], margin: [0, 0, 0, 9] },
       ...missionContent,
       { columns: [
@@ -856,7 +866,7 @@ export function buildDayPdfDefinition({ day, progress, stars, tomorrowLimit, rew
     defaultStyle: { font: "Roboto", fontSize: 9.5, color: "#25304A", lineHeight: 1.2 },
     styles: {
       eyebrow: { fontSize: 8, bold: true, color: "#5D5FEF", characterSpacing: 1.5 }, title: { fontSize: 24, bold: true, color: "#29345B" }, heroSubtitle: { fontSize: 9.5, color: "#66708A" }, date: { fontSize: 10, bold: true, color: "#5D5FEF" }, heroScore: { fontSize: 34, bold: true, color: "#FFFFFF" }, heroCaption: { fontSize: 7, bold: true, color: "#FFE8EE", characterSpacing: 1 }, scoreNote: { fontSize: 6.5, bold: true, color: "#FFFFFF" },
-      statLabel: { fontSize: 7, bold: true, color: "#66708A", characterSpacing: .7 }, statValue: { fontSize: 17, bold: true, color: "#25304A", margin: [0, 5, 0, 2] }, statSmall: { fontSize: 7.2, color: "#7B8499" }, sectionTitle: { fontSize: 16, bold: true, color: "#29345B" }, sectionHint: { fontSize: 8, color: "#7D87A1", margin: [0, 5, 0, 0] },
+      statLabel: { fontSize: 7, bold: true, color: "#66708A", characterSpacing: .7 }, statValue: { fontSize: 17, bold: true, color: "#25304A", margin: [0, 5, 0, 2] }, statSmall: { fontSize: 7.2, color: "#7B8499" }, financeNote: { fontSize: 7.8, color: "#5D6A80", lineHeight: 1.25 }, sectionTitle: { fontSize: 16, bold: true, color: "#29345B" }, sectionHint: { fontSize: 8, color: "#7D87A1", margin: [0, 5, 0, 0] },
       step: { bold: true, fontSize: 14, color: "#29345B" }, missionKind: { bold: true, fontSize: 5.6, color: "#77819A", margin: [0, 2, 0, 0] }, missionTitle: { bold: true, fontSize: 10.5, color: "#29345B", margin: [0, 0, 0, 3] }, detail: { fontSize: 7.8, color: "#6F7890" }, done: { fontSize: 7, bold: true, color: "#26815B", margin: [0, 7, 0, 0] }, missed: { fontSize: 7, bold: true, color: "#B26448", margin: [0, 7, 0, 0] },
       studyLabel: { fontSize: 8, bold: true, color: "#4E5C83", margin: [12, 11, 12, 6] }, studyText: { fontSize: 7.2, color: "#606B84", margin: [12, 0, 12, 11], lineHeight: 1.15 },
       approvalTitle: { fontSize: 19, bold: true, color: "#273B70" }, approvalText: { fontSize: 10, bold: true, color: "#4A5F8F" }, approvalMeta: { fontSize: 8.2, color: "#6F7FA3" },

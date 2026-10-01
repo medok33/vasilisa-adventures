@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { BOOKS, cleanBookReflections, cleanDailyReadingSession, cleanRanges, isBookFinished, readingStarCount } from "../../books";
 import { completeLearningDay } from "../../../vds/learning-store";
+import { financialBalances } from "../../money-system";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,7 +84,7 @@ function cleanPayload(input: ProgressPayload, day: string) {
     ...inheritedReading(input), readingSession: cleanDailyReadingSession(input.readingSession, day), mathAnswers: strings(input.mathAnswers, 5), mathAttempts: Math.max(0, Math.min(99, Math.round(Number(input.mathAttempts) || 0))), englishAnswers: strings(input.englishAnswers, 6), englishAttempts: Math.max(0, Math.min(99, Math.round(Number(input.englishAttempts) || 0))), learningHistory: cleanLearningHistory(input.learningHistory), learningHints: booleanRecord(input.learningHints),
     kindnessChoice: textValue(input.kindnessChoice, 200), kindnessNote: textValue(input.kindnessNote, 400), independenceChoice: textValue(input.independenceChoice, 200), independenceNote: textValue(input.independenceNote, 400),
     mood: textValue(input.mood, 8), goodThing: textValue(input.goodThing, 500), hardThing: textValue(input.hardThing, 500), dadNote: textValue(input.dadNote, 600), dadNotifiedText: textValue(input.dadNotifiedText, 600), dadNotifiedAt: textValue(input.dadNotifiedAt, 40),
-    balance: money(input.balance), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), reserveStar: Boolean(input.reserveStar), decision: textValue(input.decision, 12),
+    ...financialBalances(input), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), reserveStar: Boolean(input.reserveStar), decision: textValue(input.decision, 12),
     savingsTransfer: Math.floor(money(input.savingsTransfer) / 10) * 10, savingsApplied: Boolean(input.savingsApplied),
     motherSignature: textValue(input.motherSignature, 200_000), signedAt: textValue(input.signedAt, 40),
   };
@@ -141,9 +142,9 @@ export async function GET(request: Request) {
       .sort(([left], [right]) => right.localeCompare(left))[0]?.[1];
     const previousPayload = previous?.payload ?? {};
     const latestPayload = Object.entries(database.days).filter(([storedDay]) => storedDay < day).sort(([left], [right]) => right.localeCompare(left))[0]?.[1].payload ?? previousPayload;
-    const inherited = { balance: money(previousPayload.balance), goalTitle: textValue(previousPayload.goalTitle, 80), goalAmount: money(previousPayload.goalAmount), ...inheritedReading(latestPayload) };
+    const inherited = { ...financialBalances(previousPayload), goalTitle: textValue(previousPayload.goalTitle, 80), goalAmount: money(previousPayload.goalAmount), ...inheritedReading(latestPayload) };
     if (!current) return noStore({ progress: { ...inherited, done: [] }, stars: 0, todayLimit: previous?.tomorrowLimit ?? 100, tomorrowLimit: 100, closed: false });
-    return noStore({ progress: { ...inherited, ...current.payload }, stars: current.stars, todayLimit: previous?.tomorrowLimit ?? 100, tomorrowLimit: current.tomorrowLimit, closed: current.closed });
+    return noStore({ progress: { ...inherited, ...current.payload, ...financialBalances(current.payload) }, stars: current.stars, todayLimit: previous?.tomorrowLimit ?? 100, tomorrowLimit: current.tomorrowLimit, closed: current.closed });
   } catch (error) {
     console.error("[progress:get] failed", error);
     return noStore({ error: "Не удалось загрузить день" }, { status: 500 });

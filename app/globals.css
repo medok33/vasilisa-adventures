@@ -243,6 +243,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .wallet-hero span { font-size: 10px; opacity: .66; }
 .wallet-hero strong { display: block; margin: 9px 0; font-size: 55px; letter-spacing: -.06em; }
 .wallet-hero p { max-width: 520px; margin: 0; opacity: .7; font-size: 12px; line-height: 1.55; }
+.bank-account-card { display: grid; grid-template-columns: minmax(0,1fr) minmax(210px,.65fr); gap: 24px; align-items: end; margin-top: 13px; padding: 28px; border: 1px solid #dce8f5; border-radius: 28px; background: linear-gradient(145deg,#f8fbff,#eaf4ff); box-shadow: var(--shadow); }
+.bank-account-card>div>span,.bank-account-card label>span { color: #3c6f9e; font-size: 9px; font-weight: 780; letter-spacing: .08em; text-transform: uppercase; }
+.bank-account-card>div>strong { display: block; margin: 7px 0 5px; color: #173b5d; font-size: 36px; letter-spacing: -.045em; }
+.bank-account-card p { max-width: 520px; margin: 0; color: #64798d; font-size: 11px; line-height: 1.55; }
+.bank-account-card label { display: grid; gap: 7px; }
+.bank-account-card input { width: 100%; min-height: 46px; padding: 0 13px; border: 1px solid #cbdceb; border-radius: 13px; color: #173b5d; background: rgba(255,255,255,.92); font: inherit; font-size: 16px; font-weight: 700; }
+.bank-account-card label small { color: #778b9e; font-size: 8px; }
 .goal-panel,.money-lesson,.review-panel,.parent-settings { margin-top: 13px; padding: 28px; }
 .goal-panel { position: relative; }
 .goal-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
@@ -575,6 +582,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
   .word-options button { flex: 1; }
   .wallet-hero { padding: 29px; }
   .wallet-hero strong { font-size: 46px; }
+  .bank-account-card { grid-template-columns: 1fr; padding: 22px; }
+  .bank-account-card>div>strong { font-size: 32px; }
   .goal-panel,.money-lesson,.review-panel,.parent-settings,.allocation-panel { padding: 22px; }
   .parent-analytics { padding: 21px 17px; border-radius: 23px; }.analytics-heading { flex-direction: column; }.period-switch { width: 100%; }.period-switch button { flex: 1; }.analytics-summary { grid-template-columns: 1fr 1fr; }.subject-analytics { grid-template-columns: 1fr; }.weak-topics article { align-items: flex-start; flex-direction: column; gap: 5px; }
   .goal-editor { grid-template-columns: 1fr; }

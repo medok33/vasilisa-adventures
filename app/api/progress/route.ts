@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { financialBalances } from "../../money-system";
 import { BOOKS, cleanBookReflections, cleanDailyReadingSession, cleanRanges, isBookFinished, readingStarCount } from "../../books";
 
 type ProgressPayload = Record<string, unknown>;
@@ -55,7 +56,7 @@ function cleanPayload(input: ProgressPayload, day: string) {
     mathAnswers: strings(input.mathAnswers, 5), mathAttempts: Math.max(0, Math.min(99, Math.round(Number(input.mathAttempts) || 0))), englishAnswers: strings(input.englishAnswers, 6), englishAttempts: Math.max(0, Math.min(99, Math.round(Number(input.englishAttempts) || 0))), learningHistory: cleanLearningHistory(input.learningHistory), learningHints: booleanRecord(input.learningHints),
     kindnessChoice: textValue(input.kindnessChoice, 200), kindnessNote: textValue(input.kindnessNote, 400), independenceChoice: textValue(input.independenceChoice, 200), independenceNote: textValue(input.independenceNote, 400),
     mood: textValue(input.mood, 8), goodThing: textValue(input.goodThing, 500), hardThing: textValue(input.hardThing, 500), dadNote: textValue(input.dadNote, 600), dadNotifiedText: textValue(input.dadNotifiedText, 600), dadNotifiedAt: textValue(input.dadNotifiedAt, 40),
-    balance: money(input.balance), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), reserveStar: Boolean(input.reserveStar), decision: textValue(input.decision, 12),
+    ...financialBalances(input), goalTitle: textValue(input.goalTitle, 80), goalAmount: money(input.goalAmount), reserveStar: Boolean(input.reserveStar), decision: textValue(input.decision, 12),
     savingsTransfer: Math.floor(money(input.savingsTransfer) / 10) * 10, savingsApplied: Boolean(input.savingsApplied),
     motherSignature: textValue(input.motherSignature, 200_000), signedAt: textValue(input.signedAt, 40),
   };
@@ -74,9 +75,10 @@ export async function GET(request: Request) {
     const previous = await env.DB.prepare("SELECT payload, tomorrow_limit FROM daily_progress WHERE day < ? AND closed = 1 ORDER BY day DESC LIMIT 1").bind(day).first<{ payload: string; tomorrow_limit: number }>();
     const latest = await env.DB.prepare("SELECT payload FROM daily_progress WHERE day < ? ORDER BY day DESC LIMIT 1").bind(day).first<{ payload: string }>();
     const previousPayload = previous ? JSON.parse(previous.payload) as ProgressPayload : {};
-    const inherited = { balance: money(previousPayload.balance), goalTitle: textValue(previousPayload.goalTitle, 80), goalAmount: money(previousPayload.goalAmount), ...inheritedReading(latest ? JSON.parse(latest.payload) as ProgressPayload : previousPayload) };
+    const inherited = { ...financialBalances(previousPayload), goalTitle: textValue(previousPayload.goalTitle, 80), goalAmount: money(previousPayload.goalAmount), ...inheritedReading(latest ? JSON.parse(latest.payload) as ProgressPayload : previousPayload) };
     if (!current) return Response.json({ progress: { ...inherited, done: [] }, stars: 0, todayLimit: previous?.tomorrow_limit ?? 100, tomorrowLimit: 100, closed: false });
-    return Response.json({ progress: { ...inherited, ...JSON.parse(current.payload) }, stars: current.stars, todayLimit: previous?.tomorrow_limit ?? 100, tomorrowLimit: current.tomorrow_limit, closed: Boolean(current.closed) });
+    const currentPayload = JSON.parse(current.payload) as ProgressPayload;
+    return Response.json({ progress: { ...inherited, ...currentPayload, ...financialBalances(currentPayload) }, stars: current.stars, todayLimit: previous?.tomorrow_limit ?? 100, tomorrowLimit: current.tomorrow_limit, closed: Boolean(current.closed) });
   } catch (error) {
     console.error("[progress:get] failed", error);
     return Response.json({ error: "Не удалось загрузить день" }, { status: 500 });

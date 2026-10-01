@@ -148,5 +148,24 @@ test("signed mom report uses a clean download label and document seal without a 
   assert.doesNotMatch(pdf, /Мой волшебный день|Мой день - моя история|НАСТРОЕНИЕ|МОЯ ПОБЕДА|БЫЛО НЕПРОСТО|МАМИНА ПРОВЕРКА|Мама проверила маршрут|Подпись мамы|Дата:|relativePosition/);
   assert.match(pdf, /День принят!/);
   assert.match(pdf, /Каждая попытка - это новый шаг вперёд!/);
+  assert.match(pdf, /В КОПИЛКУ СЕГОДНЯ/);
+  assert.match(pdf, /ВСЕГО В КОПИЛКЕ/);
+  assert.match(pdf, /ПОТРАТИТЬ ЗАВТРА/);
+  assert.match(pdf, /Банковский счёт:/);
+  assert.match(pdf, /раз в неделю на 700 ₽/);
   assert.match(adventure, /approvalSealSvg/);
+});
+
+test("wallet separates weekly savings from the real bank account", async () => {
+  const adventure = await readFile(new URL("../app/Adventure.tsx", import.meta.url), "utf8");
+  const route = await readFile(new URL("../vds/progress-route.ts", import.meta.url), "utf8");
+  assert.match(adventure, /Всего в копилке/);
+  assert.match(adventure, /Банковский счёт/);
+  assert.match(adventure, /фактическая сумма на карте/);
+  assert.match(adventure, /раз в неделю на 700 ₽/);
+  assert.match(adventure, /В конце недели накопленное переводится на настоящую карту/);
+  assert.match(adventure, /canEditBankBalance/);
+  assert.match(adventure, /Сделала зарядку"/);
+  assert.doesNotMatch(adventure, /Сделала зарядку 5 минут/);
+  assert.match(route, /financialBalances\(current\.payload\)/);
 });
